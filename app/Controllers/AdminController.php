@@ -40,9 +40,10 @@ class AdminController extends BaseController
         $password = $this->request->getPost('password');
 
         // 2. Preparar la petición HTTP al Servidor de Autorización (/api/login)
-        $client = new CURLRequest(new \Config\App());
         
-        // CRÍTICO: Usar la URL completa del endpoint de la API
+        // CRÍTICO: Usar el Service Locator para obtener una instancia correcta del cliente HTTP
+        $client = \Config\Services::curlrequest(); 
+        
         $apiUrl = base_url('api/login'); 
         
         try {
@@ -62,13 +63,10 @@ class AdminController extends BaseController
                 // 3. Autenticación Exitosa: Recibir tokens y establecer la sesión BFF
                 $session = session();
                 
-                // CRÍTICO: Establecer la sesión BFF (Guardar el AT/RT en la sesión/cookie segura)
+                // Establecer la sesión BFF
                 $session->set('isLoggedIn', true);
                 $session->set('accessToken', $responseBody->access_token);
                 $session->set('refreshToken', $responseBody->refresh_token);
-                
-                // NOTA: En un sistema BFF real, el RT se guardaría en una DB/Cache segura,
-                // y solo se emitiría una cookie HTTP-Only al navegador.
                 
                 // 4. Redirigir al Dashboard
                 return redirect()->to(route_to('admin.dashboard'))->with('success', 'Bienvenido al Dashboard.');
@@ -90,9 +88,27 @@ class AdminController extends BaseController
      */
     public function dashboard()
     {
-        // En un sistema real, aquí se aplicaría un filtro para verificar el AT/Cookie.
+        $session = session();
+        // 1. Obtener la URL base para la navegación
+        $baseURL = base_url('admin'); // La base para todas las rutas de administración
+
+        // 2. Definir los enlaces de navegación
+        $navLinks = [
+            'Dashboard' => ['url' => $baseURL, 'active' => true],
+            'Cotizaciones' => ['url' => $baseURL . '/cotizaciones', 'active' => false],
+            'Calendario' => ['url' => $baseURL . '/calendario', 'active' => false],
+            'Servicios' => ['url' => $baseURL . '/servicios', 'active' => false],
+        ];
+
+        // 3. Pasar los datos a la vista
+        $data = [
+            'currentPage' => 'Dashboard',
+            'baseURL' => $baseURL,
+            'navLinks' => $navLinks,
+            'isLoggedIn' => $session->get('isLoggedIn') ?? false,
+        ];
         
-        return view('admin/dashboard');
+        return view('admin/dashboard', $data);
     }
 
     /**
