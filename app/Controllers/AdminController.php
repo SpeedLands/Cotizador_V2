@@ -111,17 +111,16 @@ class AdminController extends BaseController
         return view('admin/dashboard', $data);
     }
 
-    /**
-     * Cierra la sesión del usuario (BFF Logout).
-     */
-    public function logout()
+   public function logout()
     {
         $session = session();
         $refreshToken = $session->get('refreshToken');
         
         // 1. Llamar al endpoint de la API para revocar el Refresh Token
         if ($refreshToken) {
-            $client = new \CodeIgniter\HTTP\CURLRequest(new \Config\App());
+            // CRÍTICO: Usar el Service Locator para obtener una instancia correcta del cliente HTTP
+            $client = \Config\Services::curlrequest(); 
+            
             $apiUrl = base_url('api/logout'); 
             
             try {
@@ -142,6 +141,7 @@ class AdminController extends BaseController
         $session->destroy(); // Destruir la sesión de CI4
 
         // 3. Redirigir a la página de login
-        return redirect()->to(route_to('admin.login'))->with('success', 'Sesión cerrada exitosamente.');
+        // Usamos route_to('admin.login') para ser más robustos, aunque base_url('/admin') también funciona.
+        return redirect()->to(base_url('/admin'))->with('success', 'Sesión cerrada exitosamente.');
     }
 }
