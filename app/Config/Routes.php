@@ -24,3 +24,8 @@ $routes->get('admin', 'AdminController::login', ['as' => 'admin.login']); // Pá
 $routes->post('admin/auth', 'AdminController::authenticate'); // Endpoint de autenticación
 $routes->get('admin/dashboard', 'AdminController::dashboard', ['as' => 'admin.dashboard']); // Dashboard
 $routes->get('admin/logout', 'AdminController::logout', ['as' => 'admin.logout']);
+
+$routes->get('admin/cotizaciones/ver/(:num)', 'AdminController::viewCotizacion/$1', ['as' => 'admin.cotizaciones.view']);
+
+$routes->get('admin/cotizaciones/editar/(:num)', 'AdminController::editCotizacion/$1', ['as' => 'admin.cotizaciones.edit']);
+$routes->post('admin/cotizaciones/actualizar', 'AdminController::updateCotizacion', ['as' => 'admin.cotizaciones.update']);

@@ -31,7 +31,7 @@
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.11.2/build/js/intlTelInput.min.js"></script>
 </head>
 <body class="bg-slate-50">
-    <?= view('components/appbar', ['currentPage' => $currentPage ?? 'Dashboard']) ?>
+    <?= view('components/appbar', [ 'showNavLinks' => false]) ?>
     <main class="py-16 px-4 sm:px-6 lg:px-8">
         <div class="container mx-auto max-w-7xl">
             <div class="text-center mb-12 pt-16">

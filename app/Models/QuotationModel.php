@@ -93,11 +93,10 @@ class QuotationModel extends Model
 
         // 2. Obtenemos los datos reales de la DB en UNA SOLA CONSULTA
         $fechaLimite = date('Y-m-01', strtotime("-" . ($numeroDeMeses - 1) . " months"));
-        // CRÍTICO: Usar 'created_at' para el filtro de fecha de creación
-        $resultados = $this->select("SUM(total_estimado) as total, DATE_FORMAT(created_at, '%Y-%m') as mes_ano")
+        $resultados = $this->select("SUM(total_estimado) as total, DATE_FORMAT(fecha_evento, '%Y-%m') as mes_ano")
                            ->where('status', 'Confirmado')
-                           ->where('created_at >=', $fechaLimite)
-                           ->groupBy("DATE_FORMAT(created_at, '%Y-%m')")
+                           ->where('fecha_evento >=', $fechaLimite)
+                           ->groupBy("DATE_FORMAT(fecha_evento, '%Y-%m')")
                            ->get()
                            ->getResultArray();
 
