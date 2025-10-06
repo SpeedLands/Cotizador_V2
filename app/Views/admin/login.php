@@ -18,7 +18,7 @@
                 </div>
             <?php endif; ?>
 
-            <form action="<?= base_url('admin/auth') ?>" method="post">
+            <form action="<?= site_url('admin/auth') ?>" method="post">
                 <?= csrf_field() ?>
 
                 <div class="mb-4">

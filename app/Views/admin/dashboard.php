@@ -20,7 +20,12 @@
     <!-- Renderizar el appbar (ya adaptado en el paso anterior) -->
     <?= view('components/appbar', [
         'currentPage' => $currentPage ?? 'Dashboard', 
-        'navLinks' => $navLinks,
+        'navLinks' => $navLinks = [
+            'Dashboard' => ['url' => $baseURL. '/dashboard', 'active' => true],
+            'Cotizaciones' => ['url' => $baseURL . '/cotizaciones', 'active' => false],
+            'Calendario' => ['url' => $baseURL . '/calendario', 'active' => false],
+            'Servicios' => ['url' => $baseURL . '/servicios', 'active' => false],
+        ],
         'isLoggedIn' => $isLoggedIn,
     ]) ?>
 
@@ -154,7 +159,7 @@
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <a href="<?= base_url('admin/cotizaciones/ver/' . $cotizacion['id_cotizacion']) ?>" class="text-indigo-600 hover:text-indigo-900" title="Ver Detalle">
+                                                <a href="<?= site_url(route_to('panel.cotizaciones.view', $cotizacion['id_cotizacion'])) ?>" class="text-indigo-600 hover:text-indigo-900" title="Ver Detalle">
                                                     <i class="bi bi-eye"></i>
                                                 </a>
                                             </td>
@@ -169,7 +174,7 @@
                         </div>
                     <?php endif; ?>
                     <div class="p-4 text-center border-t">
-                         <a href="<?= base_url('admin/cotizaciones') ?>" class="text-indigo-600 hover:text-indigo-900 font-medium">Ver todas las cotizaciones</a>
+                         <a href="<?= site_url(route_to('panel.cotizaciones.index')) ?>" class="text-indigo-600 hover:text-indigo-900 font-medium">Ver todas las cotizaciones</a>
                     </div>
                 </div>
             </div>

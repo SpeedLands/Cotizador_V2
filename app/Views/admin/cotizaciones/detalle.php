@@ -22,7 +22,7 @@ function translate($value, $labels) {
      <?= view('components/appbar', [
         'currentPage' => $currentPage ?? 'Dashboard', 
         'navLinks' => $navLinks = [
-            'Dashboard' => ['url' => $baseURL, 'active' => false],
+            'Dashboard' => ['url' => $baseURL . '/dashboard', 'active' => false],
             'Cotizaciones' => ['url' => $baseURL . '/cotizaciones', 'active' => true],
             'Calendario' => ['url' => $baseURL . '/calendario', 'active' => false],
             'Servicios' => ['url' => $baseURL . '/servicios', 'active' => false],
@@ -31,7 +31,7 @@ function translate($value, $labels) {
     ]) ?>
     
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         <!-- Encabezado y Botones de Acción -->
         <div class="flex justify-between items-center mb-6">
             <div>
@@ -39,8 +39,8 @@ function translate($value, $labels) {
                 <p class="text-gray-500">Cotización #<?= esc($cotizacion['id_cotizacion']) ?> - Solicitada el <?= date('d/m/Y', strtotime($cotizacion['created_at'])) ?></p>
             </div>
             <div class="flex space-x-3">
-                <a href="#" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition"><i class="bi bi-pencil me-1"></i> Editar</a>
-                <a href="<?= base_url('admin/dashboard') ?>" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Volver</a>
+                <a href="<?= site_url(route_to('panel.cotizaciones.edit', $cotizacion['id_cotizacion'])) ?>" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition"><i class="bi bi-pencil me-1"></i> Editar</a>
+                <a href="<?= site_url(route_to('panel.dashboard')) ?>" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Volver</a>
             </div>
         </div>
 
@@ -59,7 +59,12 @@ function translate($value, $labels) {
                         </div>
                         <div class="col-span-1">
                             <dt class="font-medium text-gray-700"><i class="bi bi-whatsapp text-muted mr-2"></i>WhatsApp</dt>
-                            <dd class="text-gray-900"><?= esc($cotizacion['cliente_whatsapp']) ?></dd>
+                            <dd class="text-gray-900 flex items-center">
+                                <span><?= esc($cotizacion['cliente_whatsapp']) ?></span>
+                                <a href="https://wa.me/<?= esc($cotizacion['cliente_whatsapp']) ?>" target="_blank" class="ml-3 inline-flex items-center bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded-full hover:bg-green-200">
+                                    <i class="bi bi-whatsapp mr-1"></i> Contactar
+                                </a>
+                            </dd>
                         </div>
                         <?php if(!empty($cotizacion['nombre_empresa'])): ?>
                             <div class="col-span-1">
@@ -180,7 +185,7 @@ function translate($value, $labels) {
                         </li>
                     </ul>
                     <div class="mt-4 pt-4 border-t">
-                        <form action="<?= base_url('admin/cotizaciones/actualizar-estado') ?>" method="post" class="space-y-3">
+                        <form action="<?= site_url(route_to('panel.cotizaciones.updateStatus')) ?>" method="post" class="space-y-3">
                             <?= csrf_field() ?>
                             <input type="hidden" name="cotizacion_id" value="<?= esc($cotizacion['id_cotizacion']) ?>">
                             <select name="status" id="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500" aria-label="Cambiar estado">

@@ -34,10 +34,10 @@ $uri = $currentUri->getTotalSegments() >= 2 ? $currentUri->getSegment(2) : '';
             <!-- 2. Enlaces de Navegación (Centro - para pantallas grandes) -->
             <?php if ($showNavLinks): ?>
             <div class="hidden lg:flex lg:items-center lg:space-x-8">
-                <a href="<?= site_url('admin') ?>" class="<?= ($uri == '' || $uri == 'admin') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Dashboard</a>
-                <a href="<?= site_url('admin/cotizaciones') ?>" class="<?= ($uri == 'cotizaciones') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Cotizaciones</a>
-                <a href="<?= site_url('admin/calendario') ?>" class="<?= ($uri == 'calendario') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Calendario</a>
-                <a href="<?= site_url('admin/servicios') ?>" class="<?= ($uri == 'servicios') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Servicios</a>
+                <a href="<?= site_url('panel/dashboard') ?>" class="<?= ($uri == 'dashboard') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Dashboard</a>
+                <a href="<?= site_url(route_to('panel.cotizaciones.index')) ?>" class="<?= ($uri == 'cotizaciones') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Cotizaciones</a>
+                <a href="<?= site_url(route_to('panel.calendario.index')) ?>" class="<?= ($uri == 'calendario') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Calendario</a>
+                <a href="<?= site_url(route_to('panel.servicios.index')) ?>" class="<?= ($uri == 'servicios') ? 'bg-slate-800 text-white rounded-full px-4 py-2 text-sm font-medium' : 'text-gray-500 hover:text-gray-900 text-sm font-medium' ?>">Servicios</a>
             </div>
             <?php endif; ?>
 
@@ -85,10 +85,10 @@ $uri = $currentUri->getTotalSegments() >= 2 ? $currentUri->getSegment(2) : '';
     <div class="lg:hidden hidden bg-white border-t border-gray-200" id="mobile-menu">
         <?php if ($showNavLinks): ?>
         <div class="space-y-1 px-2 pt-2 pb-3 sm:px-3">
-            <a href="<?= site_url('admin') ?>" class="<?= ($uri == '' || $uri == 'admin') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Dashboard</a>
-            <a href="<?= site_url('admin/cotizaciones') ?>" class="<?= ($uri == 'cotizaciones') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Cotizaciones</a>
-            <a href="<?= site_url('admin/calendario') ?>" class="<?= ($uri == 'calendario') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Calendario</a>
-            <a href="<?= site_url('admin/servicios') ?>" class="<?= ($uri == 'servicios') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Servicios</a>
+            <a href="<?= site_url(route_to('panel.dashboard')) ?>" class="<?= ($uri == 'dashboard') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Dashboard</a>
+            <a href="<?= site_url(route_to('panel.cotizaciones.index')) ?>" class="<?= ($uri == 'cotizaciones') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Cotizaciones</a>
+            <a href="<?= site_url(route_to('panel.calendario.index')) ?>" class="<?= ($uri == 'calendario') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Calendario</a>
+            <a href="<?= site_url(route_to('panel.servicios.index')) ?>" class="<?= ($uri == 'servicios') ? 'bg-slate-100 text-slate-800' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?> block rounded-md px-3 py-2 text-base font-medium">Servicios</a>
         </div>
         <?php endif; ?>
         

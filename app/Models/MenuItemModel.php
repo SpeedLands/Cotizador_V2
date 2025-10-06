@@ -8,11 +8,21 @@ class MenuItemModel extends Model
 {
     protected $table            = 'menu_items';
     protected $primaryKey       = 'id_item';
+    protected $useAutoIncrement = true;
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
-    
-    // Permitir la manipulación de todos los campos del menú
+
     protected $allowedFields = [
-        'parent_id', 'nombre_item', 'tipo_ui', 'descripcion', 'precio_unitario', 'activo'
+        'nombre_item',
+        'descripcion',
+        'parent_id',
+        'tipo_ui',
+        'precio_unitario',
+        'activo',
     ];
+
+    // Dates
+    protected $useTimestamps = false;
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
 }

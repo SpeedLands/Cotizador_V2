@@ -3,13 +3,21 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
+use App\Models\MenuItemModel;
 use CodeIgniter\API\ResponseTrait;
-use CodeIgniter\HTTP\CURLRequest;
 use App\Models\QuotationModel;
+use App\Services\QuotationService;
+use App\Services\AdminDashboardService;
+use App\Services\QuotationViewService;
 
 class AdminController extends BaseController
 {
     use ResponseTrait;
+
+    public function __construct()
+    {
+        // El constructor se deja vacío para no cargar servicios innecesariamente.
+    }
 
     /**
      * Muestra la vista del formulario de Login de Administración.
@@ -17,8 +25,9 @@ class AdminController extends BaseController
     public function login()
     {
         // Si el usuario ya tiene una sesión válida (ej. cookie), redirigir al dashboard
-        // NOTA: La lógica de sesión/cookie se implementaría aquí en un sistema BFF.
-        
+        if (session()->get('isLoggedIn')) {
+            return redirect()->to(route_to('panel.dashboard'));
+        }
         return view('admin/login');
     }
 
@@ -45,7 +54,7 @@ class AdminController extends BaseController
         // CRÍTICO: Usar el Service Locator para obtener una instancia correcta del cliente HTTP
         $client = \Config\Services::curlrequest(); 
         
-        $apiUrl = base_url('api/login'); 
+        $apiUrl = base_url('api/v1/login'); 
         
         try {
             $response = $client->post($apiUrl, [
@@ -58,7 +67,12 @@ class AdminController extends BaseController
             ]);
 
             $statusCode = $response->getStatusCode();
-            $responseBody = json_decode($response->getBody());
+            $body = $response->getBody();
+
+            log_message('debug', 'API Status Code: ' . $statusCode);
+            log_message('debug', 'API Response Body: ' . $body);
+
+            $responseBody = json_decode($body);
 
             if ($statusCode === 200) {
                 // 3. Autenticación Exitosa: Recibir tokens y establecer la sesión BFF
@@ -70,7 +84,7 @@ class AdminController extends BaseController
                 $session->set('refreshToken', $responseBody->refresh_token);
                 
                 // 4. Redirigir al Dashboard
-                return redirect()->to(route_to('admin.dashboard'))->with('success', 'Bienvenido al Dashboard.');
+                return redirect()->route('panel.dashboard')->with('success', 'Bienvenido al Dashboard.');
             } else {
                 // 5. Fallo de Autenticación
                 $errorMessage = $responseBody->messages->error ?? 'Credenciales inválidas.';
@@ -85,197 +99,193 @@ class AdminController extends BaseController
     }
 
     /**
-     * Función auxiliar para contar cotizaciones confirmadas en el mes actual.
-     */
-    private function contarConfirmadasMesActual(QuotationModel $model): int
-    {
-        // Contar cotizaciones confirmadas creadas el mes actual
-        return $model->where('status', 'Confirmado')
-                     ->where('YEAR(created_at)', date('Y'))
-                     ->where('MONTH(created_at)', date('m'))
-                     ->countAllResults(); 
-    }
-
-    /**
      * Muestra el Dashboard (Ruta Protegida).
      */
     public function dashboard()
     {
-        $session = session();
-        $cotizacionModel = new QuotationModel();
-        // 1. Obtener la URL base para la navegación
-        $baseURL = base_url('admin'); // La base para todas las rutas de administración
-
-        // 2. Definir los enlaces de navegación
-        $navLinks = [
-            'Dashboard' => ['url' => $baseURL, 'active' => true],
-            'Cotizaciones' => ['url' => $baseURL . '/cotizaciones', 'active' => false],
-            'Calendario' => ['url' => $baseURL . '/calendario', 'active' => false],
-            'Servicios' => ['url' => $baseURL . '/servicios', 'active' => false],
-        ];
-
-        $uiLabels = [
-            'social' => 'Evento Social',
-            'empresarial' => 'Evento Empresarial',
-            'otro' => 'Otro',
-            'recomendacion' => 'Recomendación',
-            'redes' => 'Redes Sociales',
-            'restaurante' => 'Por el Restaurante',
-            'hombres' => 'Hombres',
-            'mujeres' => 'Mujeres',
-            'ninos' => 'Niños',
-            'mixto' => 'Mixto',
-            'pendiente' => 'Pendiente',
-            'confirmado' => 'Confirmado',
-            'cancelado' => 'Cancelado',
-            'pagado' => 'Pagado',
-            'contactado' => 'Contactado',
-            'en_revision' => 'En Revision',
-            'No especificado' => 'No especificado', // Para valores nulos/vacíos
-        ];
-
-        $stats_canal_origen = $cotizacionModel->getStatsPorCanalOrigen();
-        $stats_tipo_evento = $cotizacionModel->getStatsPorTipoEvento();
-
-        // 3. Pasar los datos a la vista
-        $data = [
-            'currentPage' => 'Dashboard',
-            'baseURL' => $baseURL,
-            'navLinks' => $navLinks,
-            'isLoggedIn' => $session->get('isLoggedIn') ?? false,
-            
-            // --- DATOS DEL DASHBOARD (KPIs) ---
-            'pendientes' => $cotizacionModel->contarPorEstado('Pendiente'),
-            'confirmadas_mes' => $this->contarConfirmadasMesActual($cotizacionModel),
-            'ingresos_mes' => $cotizacionModel->ingresosConfirmadosPorMes(date('Y'), date('m')),
-            'kpi_conversion' => $cotizacionModel->getConversionRateKpi(),
-            
-            // --- DATOS DE TABLAS ---
-            'ultimas_cotizaciones' => $cotizacionModel->getUltimasCotizaciones(5),
-
-            // --- DATOS DE GRÁFICAS (JSON) ---
-            'grafica_ingresos' => $cotizacionModel->getIngresosUltimosMeses(6),
-            'grafica_ingresos_json' => json_encode($cotizacionModel->getIngresosUltimosMeses(6)),
-            'uiLabels' => $uiLabels, 
-
-            'stats_canal_origen' => $stats_canal_origen,
-            'stats_tipo_evento' => $stats_tipo_evento,
-        ];
-        
+        $dashboardService = new AdminDashboardService();
+        $data = $dashboardService->getDashboardData();
         return view('admin/dashboard', $data);
     }
 
     /**
+     * Muestra la vista del listado de cotizaciones con DataTables.
+     */
+    public function listQuotations()
+    {
+        return view('admin/cotizaciones/index');
+    }
+
+    /**
+     * Muestra la vista del listado de servicios (ítems de menú) con DataTables.
+     */
+    public function listServices()
+    {
+        return view('admin/servicios/index');
+    }
+
+    /**
+     * Muestra el formulario para crear un nuevo ítem de menú.
+     */
+    public function createService()
+    {
+        $menuItemModel = new MenuItemModel();
+
+        // Lógica para obtener solo padres de Nivel 1 y Nivel 2
+        // 1. Obtener IDs de los ítems de Nivel 1 (raíz)
+        $level1_ids = $menuItemModel->where('parent_id IS NULL')->findColumn('id_item') ?? [];
+
+        // 2. Obtener ítems de Nivel 1 y Nivel 2
+        $query = $menuItemModel->where('parent_id IS NULL');
+        if (!empty($level1_ids)) {
+            $query->orWhereIn('parent_id', $level1_ids);
+        }
+        
+        $data = [
+            'titulo' => 'Añadir Nuevo Servicio',
+            'parent_items' => $query->orderBy('nombre_item', 'ASC')->findAll(),
+        ];
+        return view('admin/servicios/crear', $data);
+    }
+
+    /**
+     * Procesa el formulario y guarda el nuevo ítem de menú.
+     */
+    public function storeService()
+    {
+        $rules = [
+            'nombre_item' => 'required|max_length[255]',
+            'tipo_ui' => 'required|in_list[nav_group,checkbox,radio,quantity]',
+            'parent_id' => 'permit_empty|is_natural',
+            'precio_unitario' => 'permit_empty|decimal',
+            'activo' => 'required|in_list[0,1]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $menuItemModel = new MenuItemModel();
+        $data = $this->request->getPost();
+
+        // Asegurarse de que parent_id sea null si está vacío
+        if (empty($data['parent_id'])) {
+            $data['parent_id'] = null;
+        }
+
+        if ($menuItemModel->save($data)) {
+            return redirect()->to(site_url(route_to('panel.servicios.index')))->with('success', 'Servicio añadido exitosamente.');
+        }
+
+        return redirect()->back()->withInput()->with('error', 'No se pudo guardar el servicio.');
+    }
+
+    /**
+     * Muestra el formulario para editar un ítem de menú existente.
+     */
+    public function editService($id)
+    {
+        $menuItemModel = new MenuItemModel();
+        $service = $menuItemModel->find($id);
+
+        if (!$service) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+        // Lógica para obtener solo padres de Nivel 1 y Nivel 2
+        $level1_ids = $menuItemModel->where('parent_id IS NULL')->findColumn('id_item') ?? [];
+        $query = $menuItemModel->where('parent_id IS NULL');
+        if (!empty($level1_ids)) {
+            $query->orWhereIn('parent_id', $level1_ids);
+        }
+        // Excluir el ítem actual de la lista de posibles padres
+        $query->where('id_item !=', $id);
+
+        $data = [
+            'titulo' => 'Editar Servicio #' . $id,
+            'service' => $service,
+            'parent_items' => $query->orderBy('nombre_item', 'ASC')->findAll(),
+        ];
+
+        return view('admin/servicios/editar', $data);
+    }
+
+    /**
+     * Procesa el formulario y actualiza un ítem de menú.
+     */
+    public function updateService()
+    {
+        $id = $this->request->getPost('id_item');
+        $rules = [
+            'id_item' => 'required|is_natural_no_zero',
+            'nombre_item' => 'required|max_length[255]',
+            'tipo_ui' => 'required|in_list[nav_group,checkbox,radio,quantity]',
+            'parent_id' => 'permit_empty|is_natural',
+            'precio_unitario' => 'permit_empty|decimal',
+            'activo' => 'required|in_list[0,1]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $menuItemModel = new MenuItemModel();
+        $data = $this->request->getPost();
+
+        if (empty($data['parent_id'])) {
+            $data['parent_id'] = null;
+        }
+
+        // Prevenir que un ítem sea su propio padre
+        if ($data['parent_id'] == $id) {
+            return redirect()->back()->withInput()->with('error', 'Un servicio no puede ser su propia categoría padre.');
+        }
+
+        if ($menuItemModel->update($id, $data)) {
+            return redirect()->to(site_url(route_to('panel.servicios.index')))->with('success', 'Servicio actualizado exitosamente.');
+        }
+
+        return redirect()->back()->withInput()->with('error', 'No se pudo actualizar el servicio.');
+    }
+
+    /**
+     * Elimina un ítem de menú.
+     */
+    public function deleteService()
+    {
+        $id = $this->request->getPost('id_item');
+
+        if (!$this->validate(['id_item' => 'required|is_natural_no_zero'])) {
+            return redirect()->to(site_url(route_to('panel.servicios.index')))->with('error', 'ID de servicio inválido.');
+        }
+
+        $menuItemModel = new MenuItemModel();
+
+        // Lógica de seguridad: Verificar si el ítem tiene hijos
+        $childCount = $menuItemModel->where('parent_id', $id)->countAllResults();
+
+        if ($childCount > 0) {
+            return redirect()->to(site_url(route_to('panel.servicios.index')))
+                             ->with('error', 'No se puede eliminar una categoría que contiene sub-servicios. Por favor, elimina o reasigna los sub-servicios primero.');
+        }
+
+        // Proceder con la eliminación
+        if ($menuItemModel->delete($id)) {
+            return redirect()->to(site_url(route_to('panel.servicios.index')))
+                             ->with('success', 'Servicio eliminado exitosamente.');
+        }
+
+        return redirect()->to(site_url(route_to('panel.servicios.index')))
+                         ->with('error', 'No se pudo eliminar el servicio.');
+    }
+
+    /**
      * Muestra la vista de detalle de una cotización específica.
-     * @param int $id_cotizacion ID de la cotización a mostrar.
      */
     public function viewCotizacion(int $id_cotizacion)
     {
-        $session = session();
-
-        $cotizacionModel = new \App\Models\QuotationModel();
-        $menuItemModel = new \App\Models\MenuItemModel();
-
-        $baseURL = base_url('admin');
-
-        $navLinks = [
-            'Dashboard' => ['url' => $baseURL, 'active' => false],
-            'Cotizaciones' => ['url' => $baseURL . '/cotizaciones', 'active' => true],
-            'Calendario' => ['url' => $baseURL . '/calendario', 'active' => false],
-            'Servicios' => ['url' => $baseURL . '/servicios', 'active' => false],
-        ];
-        
-        $cotizacion = $cotizacionModel->find($id_cotizacion);
-        if (!$cotizacion) { throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(); }
-
-        $uiLabels = [
-            'social' => 'Evento Social',
-            'empresarial' => 'Evento Empresarial',
-            'otro' => 'Otro Evento',
-            'recomendacion' => 'Recomendación',
-            'redes' => 'Redes Sociales',
-            'restaurante' => 'Por el Restaurante',
-            'hombres' => 'Hombres',
-            'mujeres' => 'Mujeres',
-            'ninos' => 'Niños',
-            'mixto' => 'Mixto',
-            'si' => 'Sí',
-            'no' => 'No',
-            'pendiente' => 'Pendiente',
-            'confirmado' => 'Confirmado',
-            'cancelado' => 'Cancelado',
-            'pagado' => 'Pagado',
-            'contactado' => 'Contactado',
-            'en_revision' => 'En Revisión',
-        ];
-        
-        // 1. Obtener todos los ítems de menú y construir el mapa de jerarquía
-        $allMenuItems = $menuItemModel->findAll();
-        $menuMap = [];
-        foreach ($allMenuItems as $item) {
-            $menuMap[$item['id_item']] = $item;
-        }
-        
-        // 2. Procesar y AGREGAR los servicios seleccionados a una estructura jerárquica
-        $menuSeleccionado = $cotizacion['detalle_menu']; 
-        $serviciosAgrupados = [];
-        
-        if (!empty($menuSeleccionado)) {
-            foreach ($menuSeleccionado as $itemId => $cantidad) {
-                if ($cantidad <= 0 || !isset($menuMap[$itemId])) continue;
-
-                $item = $menuMap[$itemId];
-
-                // 1. Determinar si el ítem tiene hijos (es un contenedor de navegación)
-                $hasChildren = $menuItemModel->where('parent_id', $itemId)->countAllResults() > 0;
-
-                // 2. Regla de Filtrado: Excluir si es una Categoría Raíz O un Contenedor de Navegación
-                if ($item['parent_id'] === null || $hasChildren) {
-                    continue; // Ignorar categorías raíz y contenedores intermedios
-                }
-                
-                // --- CRÍTICO: CONSTRUIR LA RUTA JERÁRQUICA COMPLETA ---
-                $path = [];
-                $currentId = $itemId;
-                
-                // Recorrer hacia arriba hasta encontrar el Nivel 1 (parent_id = null)
-                while ($currentId !== null && isset($menuMap[$currentId])) {
-                    $path[] = $menuMap[$currentId];
-                    $currentId = $menuMap[$currentId]['parent_id'];
-                }
-                
-                // Invertir el path para tener Nivel 1 > Nivel 2 > Nivel 3
-                $path = array_reverse($path);
-                
-                $rootName = $path[0]['nombre_item']; // Nivel 1
-                
-                // Inicializar la categoría si no existe
-                if (!isset($serviciosAgrupados[$rootName])) {
-                    $serviciosAgrupados[$rootName] = [];
-                }
-
-                // Añadir el ítem detallado con su ruta completa
-                $serviciosAgrupados[$rootName][] = [
-                    'path' => $path, // Array con todos los nodos del camino
-                    'nombre' => $menuMap[$itemId]['nombre_item'],
-                    'cantidad' => ($menuMap[$itemId]['tipo_ui'] === 'quantity') ? $cantidad : 'Sí',
-                    'precio' => $menuMap[$itemId]['precio_unitario'],
-                    'subtotal' => $menuMap[$itemId]['precio_unitario'] * $cantidad,
-                ];
-            }
-        }
-
-        // 3. Preparar los datos para la vista
-        $data = [
-            'titulo' => 'Detalle de Cotización',
-            'cotizacion' => $cotizacion,
-            'servicios_seleccionados' => $serviciosAgrupados, 
-            'uiLabels' => $uiLabels,
-            'navLinks' => $navLinks,
-            'baseURL' => $baseURL,
-            'isLoggedIn' => $session->get('isLoggedIn') ?? false,
-        ];
-
+        $viewService = new QuotationViewService();
+        $data = $viewService->getDataForQuotationDetail($id_cotizacion);
         return view('admin/cotizaciones/detalle', $data);
     }
 
@@ -299,10 +309,61 @@ class AdminController extends BaseController
             'titulo' => 'Editar Cotización #' . $id_cotizacion,
         ];
 
-        // Reutilizamos la vista del formulario principal
         return view('admin/cotizaciones/editar', $data); 
     }
 
+    public function updateCotizacion()
+    {
+        $quotationService = new QuotationService();
+        $validationRules = $quotationService->getValidationRules();
+        $cotizacionId = $this->request->getPost('id_cotizacion');
+
+        // Añadir regla para el ID de la cotización
+        $validationRules['id_cotizacion'] = 'required|is_natural_no_zero';
+
+        if (!$this->validate($validationRules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $postData = $this->request->getPost();
+
+        $success = $quotationService->updateQuotation($cotizacionId, $postData);
+
+        if ($success) {
+            return redirect()->to(site_url(route_to('panel.cotizaciones.view', $cotizacionId)))
+                             ->with('success', 'La cotización ha sido actualizada exitosamente.');
+        }
+
+        return redirect()->back()->withInput()
+                         ->with('error', 'Hubo un error al actualizar la cotización. Por favor, inténtalo de nuevo.');
+    }
+
+    /**
+     * Actualiza el estado de una cotización.
+     */
+    public function updateStatus()
+    {
+        $cotizacionId = $this->request->getPost('cotizacion_id');
+        $newStatus = $this->request->getPost('status');
+
+        $rules = [
+            'cotizacion_id' => 'required|is_natural_no_zero',
+            'status'        => 'required|in_list[pendiente,confirmado,cancelado,pagado,contactado,en_revision]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('error', 'Datos inválidos para actualizar el estado.');
+        }
+
+        $quotationModel = new QuotationModel();
+        $updateResult = $quotationModel->update($cotizacionId, ['status' => $newStatus]);
+
+        if ($updateResult) {
+            return redirect()->to(route_to('panel.cotizaciones.view', $cotizacionId))->with('success', 'El estado de la cotización ha sido actualizado.');
+        }
+
+        return redirect()->back()->withInput()->with('error', 'No se pudo actualizar el estado de la cotización.');
+    }
 
    public function logout()
     {
@@ -314,7 +375,7 @@ class AdminController extends BaseController
             // CRÍTICO: Usar el Service Locator para obtener una instancia correcta del cliente HTTP
             $client = \Config\Services::curlrequest(); 
             
-            $apiUrl = base_url('api/logout'); 
+            $apiUrl = base_url('api/v1/logout'); 
             
             try {
                 $client->post($apiUrl, [
@@ -330,7 +391,7 @@ class AdminController extends BaseController
         }
 
         // 2. Limpiar la sesión local (BFF)
-        $session->remove(['isLoggedIn', 'userId', 'accessToken', 'refreshToken']);
+        $session->remove(['isLoggedIn', 'accessToken', 'refreshToken']);
         $session->destroy(); // Destruir la sesión de CI4
 
         // 3. Redirigir a la página de login

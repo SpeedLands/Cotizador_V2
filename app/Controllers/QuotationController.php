@@ -5,7 +5,8 @@ namespace App\Controllers;
 use App\Controllers\BaseController;
 use App\Models\QuotationModel;
 use App\Models\MenuItemModel;
-use App\Models\AdminNotificationModel; // Para la notificación interna
+use App\Services\QuotationService;
+use App\Services\QuotationViewService;
 
 class QuotationController extends BaseController
 {
@@ -66,108 +67,46 @@ class QuotationController extends BaseController
     // Procesamiento del formulario POST
     public function submitQuote()
     {
-        $data = $this->request->getPost();
-        $quotationModel = new QuotationModel();
-        $notificationModel = new AdminNotificationModel();
+        $quotationService = new QuotationService();
+        $validation = $quotationService->getValidationRules();
 
-        // 1. Definición de Reglas de Validación Críticas
-        $rules = [
-            'cliente_nombre'    => 'required|max_length[100]',
-            'cliente_whatsapp'  => 'required|regex_match[/^\+?\d{10,20}$/]', 
-            'num_invitados'     => 'required|is_natural_no_zero',
-            'fecha_evento'      => 'required|valid_date',
-            'menu_selection'    => 'required', 
-            
-            // NUEVAS REGLAS DE VALIDACIÓN
-            'tipo_evento'       => 'required|in_list[social,empresarial,otro]',
-            'hora_inicio'       => 'required',
-            'hora_consumo'      => 'required',
-            'hora_finalizacion' => 'required',
-            'direccion_evento'  => 'required|max_length[500]',
-            'mesa_mantel'       => 'required|in_list[si,no,otro]',
-            'dificultad_montaje'=> 'required|max_length[500]',
-            'como_nos_conocio'  => 'required',
-            'tipo_consumidores' => 'required',
-            
-            // Reglas condicionales (opcionales, pero recomendadas)
-            'nombre_empresa'    => 'permit_empty|max_length[150]',
-            'mesa_mantel_especificar' => 'permit_empty|max_length[255]',
-            'restricciones_alimenticias' => 'permit_empty|max_length[255]',
-            'rango_presupuesto' => 'permit_empty|max_length[50]',
-        ];
-
-        if (! $this->validate($rules)) {
+        if (! $this->validate($validation)) {
             // Falla la validación: repoblar campos y mostrar errores
-            return view('quotation/form', [
-                'validation' => $this->validator,
-            ]);
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        // 2. Preparar los datos para la inserción atómica
-        $insertData = [
-            'cliente_nombre'    => $data['cliente_nombre'],
-            'cliente_whatsapp'  => $data['cliente_whatsapp'],
-            'num_invitados'     => $data['num_invitados'],
-            'fecha_evento'      => $data['fecha_evento'],
-            'tipo_evento'       => $data['tipo_evento'],
-            'nombre_empresa'    => $data['nombre_empresa'] ?? null,
-            'hora_inicio'       => $data['hora_inicio'],
-            'hora_consumo'      => $data['hora_consumo'],
-            'hora_finalizacion' => $data['hora_finalizacion'],
-            'direccion_evento'  => $data['direccion_evento'],
-            'mesa_mantel'       => $data['mesa_mantel'],
-            'mesa_mantel_especificar' => $data['mesa_mantel_especificar'] ?? null,
-            'dificultad_montaje'=> $data['dificultad_montaje'],
-            'como_nos_conocio'  => $data['como_nos_conocio'],
-            'tipo_consumidores' => $data['tipo_consumidores'],
-            'restricciones_alimenticias' => $data['restricciones_alimenticias'] ?? null,
-            'rango_presupuesto' => $data['rango_presupuesto'] ?? null,
+        $postData = $this->request->getPost();
+        $id_cotizacion = $quotationService->createQuotation($postData);
 
-            // El modelo se encarga de serializar 'detalle_menu' a JSON
-            'detalle_menu'      => $data['menu_selection'], 
-            'notas_adicionales' => $data['notas_adicionales'] ?? null,
-        ];
+        if (!$id_cotizacion) {
+            return redirect()->back()->withInput()->with('error', 'Hubo un error al guardar la cotización.');
+        }
 
-        // 3. Inserción Atómica
-        $quotationModel->insert($insertData);
-        $id_cotizacion = $quotationModel->getInsertID();
-
-        // 4. Notificación Interna (Basada en DB)
-        $notificationModel->insert([
-            'quotation_id' => $id_cotizacion,
-            'message'      => "Nueva cotización recibida: #{$id_cotizacion} de {$data['cliente_nombre']}",
-            'is_read'      => 0,
-        ]);
-
-        // 5. Redirección a la página de confirmación/conversión
         return redirect()->to("/cotizacion/confirmacion/{$id_cotizacion}");
     }
 
     // Página de confirmación y generación del Deep Link de WhatsApp
     public function confirmation($id_cotizacion)
     {
-        $quotationModel = new QuotationModel();
-        $quote = $quotationModel->find($id_cotizacion);
+        // Usamos el servicio de vista para obtener todos los datos procesados
+        $viewService = new QuotationViewService();
+        $data = $viewService->getDataForQuotationDetail($id_cotizacion);
 
-        if (! $quote) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-        }
+        // Extraemos la cotización para usarla en el mensaje de WhatsApp
+        $quote = $data['cotizacion'];
 
-        // Número de negocio del catering (ejemplo)
-        $business_whatsapp = '+528781453793'; 
+        // Usar el número de WhatsApp desde el archivo .env
+        $business_whatsapp = getenv('app.businessWhatsapp') ?: '+5215512345678'; // Fallback
 
         // Mensaje pre-llenado (URL-encoded) [cite: V.B]
         $message = urlencode(
-            "*¡Hola!* He completado la cotización número *{$id_cotizacion}*. Mi nombre es {$quote['cliente_nombre']} y me gustaría confirmar los detalles."
+            "*¡Hola!* He completado la cotización en línea con el folio *#{$id_cotizacion}*. Mi nombre es *{$quote['cliente_nombre']}* y me gustaría confirmar los detalles."
         );
 
         // Generación del Deep Link
-        $whatsapp_link = "https://wa.me/{$business_whatsapp}?text={$message}";
+        $data['whatsapp_link'] = "https://wa.me/{$business_whatsapp}?text={$message}";
 
-        return view('quotation/confirmation', [
-            'quote' => $quote,
-            'whatsapp_link' => $whatsapp_link,
-        ]);
+        return view('quotation/confirmation', $data);
     }
 
     public function calculateQuoteAjax()

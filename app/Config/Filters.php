@@ -2,6 +2,9 @@
 
 namespace Config;
 
+use App\Filters\AdminAuth;
+
+use App\Filters\JwtAuth;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -31,7 +34,9 @@ class Filters extends BaseFilters
         'invalidchars'  => InvalidChars::class,
         'secureheaders' => SecureHeaders::class,
         'cors'          => Cors::class,
+        'adminAuth'     => AdminAuth::class,
         'forcehttps'    => ForceHTTPS::class,
+        'jwtAuth'       => JwtAuth::class,
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
     ];
@@ -74,6 +79,7 @@ class Filters extends BaseFilters
         'before' => [
             // 'honeypot',
             // 'csrf',
+            'cors'
             // 'invalidchars',
         ],
         'after' => [
@@ -106,5 +112,10 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        'adminAuth' => [
+            'before' => ['admin/dashboard', 'admin/dashboard/*', 'admin/cotizaciones', 'admin/cotizaciones/*'],
+            'after'  => [],
+        ],
+    ];
 }

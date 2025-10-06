@@ -114,7 +114,7 @@ class MenuSeeder extends Seeder
             ['nombre' => 'galletas de smore', 'precio' => 4.50],
         ];
         foreach ($bocadillos as $item) {
-            $level3Items[] = ['parent_id' => $parentBocadillosId, 'nombre_item' => $item['nombre'], 'tipo_ui' => 'checkbox', 'descripcion' => '', 'precio_unitario' => $item['precio'], 'activo' => 1];
+            $level3Items[] = ['parent_id' => $parentBocadillosId, 'nombre_item' => $item['nombre'], 'tipo_ui' => 'quantity', 'descripcion' => '', 'precio_unitario' => $item['precio'], 'activo' => 1];
         }
 
         // 3.2 Detalle Postres

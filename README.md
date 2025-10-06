@@ -71,7 +71,7 @@ Este proyecto requiere varias tablas y datos iniciales para el menú y el usuari
 ### 2.1. Ejecutar Migraciones (Creación de Tablas)
 
 Ejecuta el comando para crear todas las tablas necesarias (cotizaciones, menú, tokens, usuarios admin):
-
+Ejecuta el comando para crear todas las tablas necesarias (incluyendo cotizaciones con `user_id`, ítems de menú, tokens de refresco y usuarios administradores):
 ```bash
 php spark migrate
 ```
@@ -86,6 +86,9 @@ php spark db:seed MenuSeeder
 
 # 2. Crear el Usuario Administrador de Prueba
 php spark db:seed AdminUserSeeder
+
+# 3. (Opcional) Sembrar Cotizaciones de Prueba
+php spark db:seed QuotationDataSeeder
 ```
 
 | Rol | Email | Contraseña |
@@ -101,37 +104,3 @@ Una vez que el servidor esté corriendo (`php spark serve` o XAMPP):
 | **Página Pública** | `http://localhost/mapolato/public/` | Formulario de Cotización Dinámico (Clientes) |
 | **Panel de Admin** | `http://localhost/mapolato/public/admin` | Interfaz de Login de Administración |
 
-## 🔒 4. Pruebas de Seguridad (Postman)
-
-Puedes verificar la implementación de la **Rotación de Refresh Tokens (RTR)** usando Postman.
-
-### PRUEBA 1: Login y Obtención de Tokens
-
-| Detalle | Valor |
-| :--- | :--- |
-| **Método** | `POST` |
-| **URL** | `http://localhost/mapolato/public/api/login` |
-| **Body** | `x-www-form-urlencoded` |
-| **email** | `admin@gmail.com` |
-| **password** | `admin123` |
-| **Acción:** Guardar el `refresh_token` de la respuesta. |
-
-### PRUEBA 2: Rotación del Token (Uso Legítimo)
-
-| Detalle | Valor |
-| :--- | :--- |
-| **Método** | `POST` |
-| **URL** | `http://localhost/mapolato/public/api/token/refresh` |
-| **Body** | `x-www-form-urlencoded` |
-| **refresh_token** | *Pega el token de la Prueba 1* |
-| **Resultado:** Debe devolver un **NUEVO** `access_token` y `refresh_token` (200 OK). |
-
-### PRUEBA 3: Ataque de Repetición (Validación de Seguridad)
-
-| Detalle | Valor |
-| :--- | :--- |
-| **Método** | `POST` |
-| **URL** | `http://localhost/mapolato/public/api/token/refresh` |
-| **Body** | `x-www-form-urlencoded` |
-| **refresh_token** | *Pega el **token ORIGINAL** (de la Prueba 1) de nuevo* |
-| **Resultado:** Debe devolver un error **401 Unauthorized** (`Refresh Token has been revoked or used.`). Esto confirma que la RTR está funcionando. |
