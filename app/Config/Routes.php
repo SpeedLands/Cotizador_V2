@@ -36,6 +36,7 @@ $routes->post('cotizacion/submit', 'QuotationController::submitQuote');
 $routes->post('cotizacion/ajax/suboptions', 'QuotationController::loadSubOptionsAjax');
 $routes->post('cotizacion/ajax/calculate', 'QuotationController::calculateQuoteAjax');
 $routes->get('cotizacion/confirmacion/(:num)', 'QuotationController::confirmation/$1');
+$routes->get('cotizacion/fechas-ocupadas', 'QuotationController::fechasOcupadas');
 
 // Rutas de Administración (Login y Dashboard)
 $routes->get('admin', 'AdminController::login', ['as' => 'admin.login']); // Página de Login

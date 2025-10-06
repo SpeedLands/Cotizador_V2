@@ -26,6 +26,7 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.11.2/build/js/intlTelInput.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body class="bg-slate-50">
     <?= view('components/appbar', ['isLoggedIn' => true]) ?>
@@ -83,22 +84,22 @@
                                 </div>
                                 <div>
                                     <label for="fecha_evento" class="block text-base font-semibold text-gray-800 mb-2">Fecha del Evento<span class="text-red-500">*</span></label>
-                                    <input type="date" name="fecha_evento" id="fecha_evento" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                                    <input type="text" name="fecha_evento" id="fecha_evento" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
                                            value="<?= old('fecha_evento', esc($cotizacion['fecha_evento'], 'attr')) ?>" required>
                                 </div>
                                 <div>
                                     <label for="hora_inicio" class="block text-base font-semibold text-gray-800 mb-2">Hora de Inicio<span class="text-red-500">*</span></label>
-                                    <input type="time" name="hora_inicio" id="hora_inicio" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                                    <input type="text" name="hora_inicio" id="hora_inicio" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
                                            value="<?= old('hora_inicio', esc($cotizacion['hora_inicio'], 'attr')) ?>" required>
                                 </div>
                                 <div>
                                     <label for="hora_consumo" class="block text-base font-semibold text-gray-800 mb-2">Hora de Consumo<span class="text-red-500">*</span></label>
-                                    <input type="time" name="hora_consumo" id="hora_consumo" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                                    <input type="text" name="hora_consumo" id="hora_consumo" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
                                            value="<?= old('hora_consumo', esc($cotizacion['hora_consumo'], 'attr')) ?>" required>
                                 </div>
                                 <div>
                                     <label for="hora_finalizacion" class="block text-base font-semibold text-gray-800 mb-2">Hora de Finalización<span class="text-red-500">*</span></label>
-                                    <input type="time" name="hora_finalizacion" id="hora_finalizacion" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                                    <input type="text" name="hora_finalizacion" id="hora_finalizacion" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
                                            value="<?= old('hora_finalizacion', esc($cotizacion['hora_finalizacion'], 'attr')) ?>" required>
                                 </div>
                                 <div class="md:col-span-2">
@@ -233,7 +234,15 @@
     </div>
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
     <script>
+
+        const fechaInput = document.getElementById('fecha_evento');
+        const horaInicioInput = document.getElementById('hora_inicio');
+        const horaConsumoInput = document.getElementById('hora_consumo');
+        const horaFinalizacionInput = document.getElementById('hora_finalizacion');
+        const fechasUrl = "<?= site_url('cotizacion/fechas-ocupadas') ?>";
 
         const menuInicial = <?= $menuSeleccionadoJson ?>;
 
@@ -263,6 +272,78 @@
                 // Esta función (que ya tienes) calculará el estimado inicial
                 updateInstantQuote(); 
             }
+
+            if (fechaInput && fechasUrl) {
+                const fechaActualDelEvento = "<?= esc($cotizacion['fecha_evento'] ?? '', 'attr') ?>";
+                // 1. Hacemos una petición para obtener las fechas ocupadas
+                fetch(fechasUrl)
+                    .then(response => response.json())
+                    .then(fechasOcupadas => {
+                        const fechasADeshabilitar = fechasOcupadas.filter(
+                            fecha => fecha !== fechaActualDelEvento
+                        );
+                        // 2. Una vez que tenemos las fechas, inicializamos Flatpickr
+                        flatpickr(fechaInput, {
+                            locale: "es", // Usar el idioma español
+                            dateFormat: "Y-m-d", // Formato que se envía al servidor
+                            altInput: true, // Muestra un formato amigable al usuario
+                            altFormat: "F j, Y", // ej: "Agosto 16, 2025"
+                            defaultDate: fechaActualDelEvento,
+                            minDate: "today", // No permite seleccionar fechas pasadas
+                            disable: fechasADeshabilitar,
+                        });
+                    })
+                    .catch(error => {
+                        // Si falla la carga de fechas, al menos bloqueamos las pasadas
+                        console.error("Error al cargar las fechas ocupadas:", error);
+                        flatpickr(fechaInput, {
+                            locale: "es",
+                            dateFormat: "Y-m-d",
+                            altInput: true,
+                            altFormat: "F j, Y",
+                            minDate: "today",
+                        });
+                    });
+            }
+
+            flatpickr(
+                horaInicioInput, 
+                {
+                    enableTime: true,       // Esencial: Habilita la selección de hora
+                    noCalendar: true,       // Esencial: Oculta el calendario, dejando solo la hora
+                    dateFormat: "h:i K",      // Formato que se envía al servidor (ej: "16:30")
+                    time_24hr: false,        // Usa el formato de 24 horas en la interfaz
+                    minuteIncrement: 15,    // Permite seleccionar en intervalos de 15 minutos (más amigable)
+                    locale: "es", 
+                    defaultDate: "<?= esc($cotizacion['hora_inicio'], 'attr') ?>"
+                }
+            );
+            flatpickr(
+                horaConsumoInput, 
+                {
+                    enableTime: true,       // Esencial: Habilita la selección de hora
+                    noCalendar: true,       // Esencial: Oculta el calendario, dejando solo la hora
+                    dateFormat: "h:i K",      // Formato que se envía al servidor (ej: "16:30")
+                    time_24hr: false,        // Usa el formato de 24 horas en la interfaz
+                    minuteIncrement: 15,    // Permite seleccionar en intervalos de 15 minutos (más amigable)
+                    locale: "es",
+                    defaultDate: "<?= esc($cotizacion['hora_consumo'], 'attr') ?>" 
+                }
+            );
+            flatpickr(
+                horaFinalizacionInput, 
+                {
+                    enableTime: true,       // Esencial: Habilita la selección de hora
+                    noCalendar: true,       // Esencial: Oculta el calendario, dejando solo la hora
+                    dateFormat: "h:i K",      // Formato que se envía al servidor (ej: "16:30")
+                    time_24hr: false,        // Usa el formato de 24 horas en la interfaz
+                    minuteIncrement: 15,    // Permite seleccionar en intervalos de 15 minutos (más amigable)
+                    locale: "es", 
+                    defaultDate: "<?= esc($cotizacion['hora_finalizacion'], 'attr') ?>"
+                }
+            );
+
+
         });
 
         // --- Lógica para campo condicional: Nombre de Empresa ---

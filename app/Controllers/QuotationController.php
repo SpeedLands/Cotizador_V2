@@ -183,4 +183,15 @@ class QuotationController extends BaseController
             'token' => csrf_hash()
         ]);
     }
+
+    public function fechasOcupadas()
+    {
+        $cotizacionModel = new \App\Models\QuotationModel();
+        $fechasDb = $cotizacionModel->select('fecha_evento')
+                                    ->where('status', 'Confirmado')
+                                    ->findAll();
+        $fechasOcupadas = array_column($fechasDb, 'fecha_evento');
+
+        return $this->response->setJSON($fechasOcupadas);
+    }
 }
