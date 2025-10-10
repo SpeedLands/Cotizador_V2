@@ -105,7 +105,7 @@ $uri = $currentUri->getTotalSegments() >= 2 ? $currentUri->getSegment(2) : '';
                 </div>
                 <div class="mt-3 space-y-1 px-2">
                     <a href="#" class="block rounded-md px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">Mi Perfil</a>
-                    <a href="<?= site_url('logout') ?>" class="block rounded-md px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">Cerrar Sesión</a>
+                    <a href="<?= site_url(route_to('admin.logout')) ?>" class="block rounded-md px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">Cerrar Sesión</a>
                 </div>
             <?php else: ?>
                  <div class="px-2">
