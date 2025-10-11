@@ -85,6 +85,7 @@ class MenuSeeder extends Seeder
                 'precio_unitario' => 0.00, 
                 'activo' => 1
             ],
+            ['nombre_item' => 'Modalidad de Servicio', 'parent_id' => null, 'tipo_ui' => 'checkbox', 'descripcion' => 'Define el tipo de servicio para tu evento.', 'precio_unitario' => 0.00, 'activo' => 1],
         ];
         $model->insertBatch($rootCategories); // INSERCIÓN 1
 
@@ -97,6 +98,7 @@ class MenuSeeder extends Seeder
         $menuKidsId             = $model->where('nombre_item', 'Menú Kids')->first()['id_item'];
         $complementosId         = $model->where('nombre_item', 'Complementos')->first()['id_item'];
         $cateringBarrasId       = $model->where('nombre_item', 'Catering y Barras')->first()['id_item'];
+        $modalidadServicioId    = $model->where('nombre_item', 'Modalidad de Servicio')->first()['id_item'];
 
 
         // =================================================================
@@ -186,6 +188,11 @@ class MenuSeeder extends Seeder
             ['nombre' => 'Mesa de snacks', 'parent_id' => $cateringBarrasId, 'tipo_ui' => 'checkbox', 'precio' => 120.00],
             ['nombre' => 'Tabla de charcuteria 10 persona', 'parent_id' => $cateringBarrasId, 'tipo_ui' => 'checkbox', 'precio' => 1300.00],
             ['nombre' => 'Menudo por Litro', 'parent_id' => $cateringBarrasId, 'tipo_ui' => 'quantity', 'precio' => 160.00],
+
+            // Hijos de Modalidad
+            ['nombre' => 'Buffet / Self Service. (Menores a 20 personas)', 'parent_id' => $modalidadServicioId, 'tipo_ui' => 'radio', 'descripcion' => 'Los invitados se sirven directamente.', 'precio' => 0.00],
+            ['nombre' => 'Buffet asistido o servido por staff (Costo adicional)', 'parent_id' => $modalidadServicioId, 'tipo_ui' => 'radio', 'descripcion' => 'Personal para asistir.', 'precio' => 500.00],
+            ['nombre' => 'Servicio a la mesa. (Costo adicional)', 'parent_id' => $modalidadServicioId, 'tipo_ui' => 'radio', 'descripcion' => 'Meseros incluidos.', 'precio' => 1500.00],
         ];
 
         foreach ($rawLevel2 as $item) {
