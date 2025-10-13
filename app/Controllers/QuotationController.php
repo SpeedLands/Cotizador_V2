@@ -91,7 +91,7 @@ class QuotationController extends BaseController
         // Verificar si el usuario viene del formulario de envío
         if (!session()->getFlashdata('from_submission')) {
             // Redirigir si se intenta acceder directamente a la URL
-            return redirect()->to('/cotizacion');
+            return redirect()->to('/');
         }
 
         // Usamos el servicio de vista para obtener todos los datos procesados
