@@ -15,11 +15,15 @@ class QuotationService
     private AdminNotificationModel $notificationModel;
     private MenuItemModel $menuItemModel;
 
-    public function __construct()
+    /**
+     * Permitir inyección de dependencias para facilitar pruebas y registro en Services.php
+     * Si no se pasan instancias, crea nuevas por compatibilidad.
+     */
+    public function __construct(QuotationModel $quotationModel = null, AdminNotificationModel $notificationModel = null, MenuItemModel $menuItemModel = null)
     {
-        $this->quotationModel = new QuotationModel();
-        $this->notificationModel = new AdminNotificationModel();
-        $this->menuItemModel = new MenuItemModel();
+        $this->quotationModel = $quotationModel ?? new QuotationModel();
+        $this->notificationModel = $notificationModel ?? new AdminNotificationModel();
+        $this->menuItemModel = $menuItemModel ?? new MenuItemModel();
     }
 
     /**

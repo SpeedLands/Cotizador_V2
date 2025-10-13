@@ -11,13 +11,11 @@ class ApiAuthController extends BaseController
 {
     use ResponseTrait;
 
-    protected $jwtService;
-    protected $rtModel;
+    protected $authService;
 
     public function __construct()
     {
-        $this->jwtService = new JwtService();
-        $this->rtModel = new RefreshTokenModel();
+        $this->authService = service('authService');
     }
 
     /**
@@ -38,27 +36,11 @@ class ApiAuthController extends BaseController
         $email = $this->request->getVar('email');
         $password = $this->request->getVar('password');
 
-        $userModel = new \App\Models\AdminUserModel();
-        $user = $userModel->where('email', $email)->first();
-
-        if (!$user || !password_verify($password, $user['password'])) {
+        $tokens = $this->authService->login(['email' => $email, 'password' => $password]);
+        if (!$tokens) {
             return $this->failUnauthorized('Invalid login credentials.');
         }
 
-        $userId = $user['id']; // ID del usuario validado
-
-        // 1. Generar el par de tokens
-        $tokens = $this->jwtService->generateTokenPair($userId);
-
-        // 2. Persistir el JTI del Refresh Token (RT)
-        $this->rtModel->insert([
-            'user_id'    => $userId,
-            'jti'        => $tokens['jti'],
-            'expires_at' => $tokens['rt_expires_at'],
-            'revoked'    => 0,
-        ]);
-
-        // 3. Respuesta al cliente
         return $this->respond([
             'message'       => 'Login successful',
             'access_token'  => $tokens['access_token'],
@@ -79,38 +61,11 @@ class ApiAuthController extends BaseController
             return $this->failUnauthorized('Refresh Token is required.');
         }
 
-        // 1. Decodificar y validar el RT
-        $decodedRt = $this->jwtService->decodeToken($refreshToken);
-
-        if (!$decodedRt || $decodedRt->type !== 'refresh') {
+        $newTokens = $this->authService->refresh($refreshToken);
+        if (!$newTokens) {
             return $this->failUnauthorized('Invalid or expired Refresh Token.');
         }
 
-        // 2. Verificar el JTI en la base de datos (Detección de Replay Attack)
-        $jti = $decodedRt->jti;
-        $rtRecord = $this->rtModel->where('jti', $jti)->first();
-
-        if (!$rtRecord || $rtRecord['revoked'] == 1) {
-            // CRÍTICO: Si el token es inválido/revocado, es un posible ataque.
-            return $this->failUnauthorized('Refresh Token has been revoked or used.');
-        }
-
-        // 3. Ejecutar Rotación: Invalidar el JTI actual
-        $this->rtModel->update($rtRecord['id'], ['revoked' => 1]);
-
-        // 4. Generar el nuevo par de tokens
-        $userId = $decodedRt->uid;
-        $newTokens = $this->jwtService->generateTokenPair($userId);
-
-        // 5. Persistir el NUEVO JTI
-        $this->rtModel->insert([
-            'user_id'    => $userId,
-            'jti'        => $newTokens['jti'],
-            'expires_at' => $newTokens['rt_expires_at'],
-            'revoked'    => 0,
-        ]);
-
-        // 6. Respuesta con el nuevo par de tokens
         return $this->respond([
             'message'       => 'Token refreshed successfully',
             'access_token'  => $newTokens['access_token'],
@@ -126,8 +81,8 @@ class ApiAuthController extends BaseController
     public function logout()
     {
         $refreshToken = $this->request->getPost('refresh_token');
-        if ($refreshToken && ($decoded = $this->jwtService->decodeToken($refreshToken))) {
-            $this->rtModel->where('jti', $decoded->jti)->set(['revoked' => 1])->update();
+        if ($refreshToken) {
+            $this->authService->revoke($refreshToken);
         }
 
         return $this->respond(['message' => 'Refresh token revoked.']);

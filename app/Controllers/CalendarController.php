@@ -30,13 +30,9 @@ class CalendarController extends BaseController
             return $this->failValidationError('Faltan parámetros de rango de fecha [start, end].');
         }
 
-        $quotationModel = new QuotationModel();
-
-        // 2. Consultar solo los eventos dentro del rango visible
-        $eventsDB = $quotationModel
-            ->where('fecha_evento >=', $start)
-            ->where('fecha_evento <=', $end)
-            ->findAll();
+        // Usar el servicio centralizado
+        $calendarService = service('calendarService');
+        $eventsDB = $calendarService->getEventsForRange($start, $end);
 
         $calendarEvents = [];
         $statusColors = [
@@ -49,18 +45,7 @@ class CalendarController extends BaseController
         ];
 
         // 3. Mapear los resultados al formato JSON de FullCalendar
-        foreach ($eventsDB as $event) {
-            $calendarEvents[] = [
-                'id' => $event['id_cotizacion'],
-                'title' => 'Evento: ' . $event['cliente_nombre'],
-                'start' => $event['fecha_evento'],
-                'allDay' => true,
-                'color' => $statusColors[strtolower($event['status'])] ?? '#6b7280',
-                'url' => site_url(route_to('panel.cotizaciones.view', $event['id_cotizacion'])),
-            ];
-        }
-
-        // 4. Devolver la respuesta JSON
-        return $this->respond($calendarEvents);
+        // Si el servicio ya devolvió los eventos en el formato esperado, simplemente responder
+        return $this->respond($eventsDB);
     }
 }

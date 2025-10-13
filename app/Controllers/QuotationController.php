@@ -21,7 +21,7 @@ class QuotationController extends BaseController
     public function loadSubOptionsAjax()
     {
         $parent_id = $this->request->getPost('parent_id');
-        $menuModel = new \App\Models\MenuItemModel(); // Usar el FQCN o el 'use'
+    $menuService = service('menuService');
 
         // 1. Validación básica del ID
         if (! is_numeric($parent_id)) {
@@ -34,20 +34,16 @@ class QuotationController extends BaseController
         }
 
         // 2. Consultar el modelo de menú
-        $sub_options = $menuModel->where('parent_id', $parent_id)
-                                 ->where('activo', 1)
-                                 ->findAll();
+    $sub_options = $menuService->getActiveSubOptions((int)$parent_id);
         
         // Determinar si cada sub-opción tiene hijos (para la navegación dinámica)
         foreach ($sub_options as $key => $option) {
-            // Consulta rápida para ver si existen ítems con este ID como padre
-            // Esto asegura que la lógica de navegación sea 100% dinámica de la DB.
-            $sub_options[$key]['has_children'] = $menuModel->where('parent_id', $option['id_item'])->countAllResults() > 0;
+            $sub_options[$key]['has_children'] = !empty($menuService->getActiveSubOptions((int)$option['id_item']));
         }
         
         // OBTENER EL NOMBRE DEL ÍTEM PADRE
-        $parentItem = $menuModel->find($parent_id);
-        $parentName = $parentItem['nombre_item'] ?? 'Opciones Detalladas';
+    $parentItem = $menuService->getById((int)$parent_id);
+    $parentName = $parentItem['nombre_item'] ?? 'Opciones Detalladas';
 
 
         // 3. Renderizar la vista parcial para inyectar en el DOM
@@ -67,7 +63,8 @@ class QuotationController extends BaseController
     // Procesamiento del formulario POST
     public function submitQuote()
     {
-        $quotationService = new QuotationService();
+        // Obtener el servicio desde el contenedor de servicios
+        $quotationService = service('quotationService');
         $validation = $quotationService->getValidationRules();
 
         if (! $this->validate($validation)) {
@@ -82,14 +79,23 @@ class QuotationController extends BaseController
             return redirect()->back()->withInput()->with('error', 'Hubo un error al guardar la cotización.');
         }
 
+        // Establecer un flashdata para permitir el acceso a la página de confirmación
+        session()->setFlashdata('from_submission', true);
+
         return redirect()->to("/cotizacion/confirmacion/{$id_cotizacion}");
     }
 
     // Página de confirmación y generación del Deep Link de WhatsApp
     public function confirmation($id_cotizacion)
     {
+        // Verificar si el usuario viene del formulario de envío
+        if (!session()->getFlashdata('from_submission')) {
+            // Redirigir si se intenta acceder directamente a la URL
+            return redirect()->to('/cotizacion');
+        }
+
         // Usamos el servicio de vista para obtener todos los datos procesados
-        $viewService = new QuotationViewService();
+        $viewService = service('quotationViewService');
         $data = $viewService->getDataForQuotationDetail($id_cotizacion);
 
         // Extraemos la cotización para usarla en el mensaje de WhatsApp
@@ -111,7 +117,7 @@ class QuotationController extends BaseController
 
     public function calculateQuoteAjax()
     {
-        $menuModel = new MenuItemModel();
+    $menuService = service('menuService');
         $menuSelections = $this->request->getPost('menu_selection') ?? [];
         // Obtener la cantidad de invitados
         $numInvitados = (int) $this->request->getPost('num_invitados'); 
@@ -129,8 +135,8 @@ class QuotationController extends BaseController
         }
 
         // Obtener los IDs de los ítems seleccionados
-        $itemIds = array_keys($menuSelections);
-        $items = $menuModel->whereIn('id_item', $itemIds)->findAll();
+    $itemIds = array_keys($menuSelections);
+    $items = $menuService->getItemsByIds($itemIds);
 
         foreach ($items as $item) {
             $itemId = $item['id_item'];
@@ -156,7 +162,7 @@ class QuotationController extends BaseController
                 }
             }
 
-            if ($quantity > 0) {
+                if ($quantity > 0) {
                 // Multiplicar por la cantidad de invitados si es "por persona"
                 $finalQuantity = $isPerPerson ? $numInvitados : $quantity;
                 
@@ -174,7 +180,7 @@ class QuotationController extends BaseController
                     'subtotal_formatted' => '$' . number_format($subtotal, 2)
                 ];
             }
-        }
+                }
 
         return $this->response->setJSON([
             'success' => true,
@@ -188,8 +194,10 @@ class QuotationController extends BaseController
     {
         $cotizacionModel = new \App\Models\QuotationModel();
         $fechasDb = $cotizacionModel->select('fecha_evento')
-                                    ->where('status', 'Confirmado')
-                                    ->findAll();
+                                    ->where('status', 'Confirmado');
+            $fechasDb = $cotizacionModel->select('fecha_evento')
+                                        ->where('status', 'Confirmado')
+                                        ->findAll();
         $fechasOcupadas = array_column($fechasDb, 'fecha_evento');
 
         return $this->response->setJSON($fechasOcupadas);

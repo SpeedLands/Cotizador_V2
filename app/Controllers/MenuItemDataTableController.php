@@ -13,8 +13,8 @@ class MenuItemDataTableController extends Controller
             return $this->response->setStatusCode(403, 'Forbidden');
         }
 
-        $request = $this->request;
-        $model = new MenuItemDataTableModel();
+    $request = $this->request;
+    $model = new MenuItemDataTableModel();
 
         $draw = $request->getPost('draw');
         $start = $request->getPost('start');
@@ -26,7 +26,7 @@ class MenuItemDataTableController extends Controller
             $length = 100;
         }
 
-        $data = $model->getDatatables($searchValue, $order, $start, $length);
+    $data = $model->getDatatables($searchValue, $order, $start, $length);
         $totalRecords = $model->countAll();
         $filteredRecords = $model->countFiltered($searchValue);
 

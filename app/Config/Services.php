@@ -29,4 +29,81 @@ class Services extends BaseService
      *     return new \CodeIgniter\Example();
      * }
      */
+    public static function quotationService($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('quotationService');
+        }
+
+        return new \App\Services\QuotationService(
+            new \App\Models\QuotationModel(),
+            new \App\Models\AdminNotificationModel(),
+            new \App\Models\MenuItemModel()
+        );
+    }
+
+    public static function calendarService($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('calendarService');
+        }
+
+        return new \App\Services\CalendarService(
+            new \App\Models\QuotationModel()
+        );
+    }
+
+    public static function menuService($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('menuService');
+        }
+
+        return new \App\Services\MenuService(
+            new \App\Models\MenuItemModel()
+        );
+    }
+
+    public static function quotationViewService($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('quotationViewService');
+        }
+
+        return new \App\Services\QuotationViewService(
+            new \App\Models\QuotationModel(),
+            new \App\Models\MenuItemModel()
+        );
+    }
+
+    public static function adminDashboardService($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('adminDashboardService');
+        }
+
+        return new \App\Services\AdminDashboardService();
+    }
+
+    public static function authService($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('authService');
+        }
+
+        return new \App\Services\AuthService();
+    }
 }
+
+// Service factories de aplicación
+if (! function_exists('quotationService')) {
+    /**
+     * Helper global que devuelve la instancia de QuotationService vía service('quotationService')
+     * (opcional, para compatibilidad). Normalmente se usará service('quotationService').
+     */
+    function quotationService()
+    {
+        return service('quotationService');
+    }
+}
+

@@ -9,6 +9,7 @@ use App\Models\QuotationModel;
 use App\Services\QuotationService;
 use App\Services\AdminDashboardService;
 use App\Services\QuotationViewService;
+use App\Services\MenuService;
 
 class AdminController extends BaseController
 {
@@ -103,7 +104,7 @@ class AdminController extends BaseController
      */
     public function dashboard()
     {
-        $dashboardService = new AdminDashboardService();
+        $dashboardService = service('adminDashboardService');
         $data = $dashboardService->getDashboardData();
         return view('admin/dashboard', $data);
     }
@@ -129,21 +130,14 @@ class AdminController extends BaseController
      */
     public function createService()
     {
-        $menuItemModel = new MenuItemModel();
+        $menuService = service('menuService');
 
-        // Lógica para obtener solo padres de Nivel 1 y Nivel 2
-        // 1. Obtener IDs de los ítems de Nivel 1 (raíz)
-        $level1_ids = $menuItemModel->where('parent_id IS NULL')->findColumn('id_item') ?? [];
+        // Obtener items raíz y de nivel 2 de forma centralizada
+        $parentItems = $menuService->getActiveSubOptions(0);
 
-        // 2. Obtener ítems de Nivel 1 y Nivel 2
-        $query = $menuItemModel->where('parent_id IS NULL');
-        if (!empty($level1_ids)) {
-            $query->orWhereIn('parent_id', $level1_ids);
-        }
-        
         $data = [
             'titulo' => 'Añadir Nuevo Servicio',
-            'parent_items' => $query->orderBy('nombre_item', 'ASC')->findAll(),
+            'parent_items' => $parentItems,
         ];
         return view('admin/servicios/crear', $data);
     }
@@ -165,15 +159,11 @@ class AdminController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $menuItemModel = new MenuItemModel();
+        $menuService = service('menuService');
         $data = $this->request->getPost();
 
-        // Asegurarse de que parent_id sea null si está vacío
-        if (empty($data['parent_id'])) {
-            $data['parent_id'] = null;
-        }
-
-        if ($menuItemModel->save($data)) {
+        $id = $menuService->createItem($data);
+        if ($id) {
             return redirect()->to(site_url(route_to('panel.servicios.index')))->with('success', 'Servicio añadido exitosamente.');
         }
 
@@ -185,26 +175,22 @@ class AdminController extends BaseController
      */
     public function editService($id)
     {
-        $menuItemModel = new MenuItemModel();
-        $service = $menuItemModel->find($id);
+        $menuService = service('menuService');
+        $service = $menuService->getById((int)$id);
 
         if (!$service) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
 
-        // Lógica para obtener solo padres de Nivel 1 y Nivel 2
-        $level1_ids = $menuItemModel->where('parent_id IS NULL')->findColumn('id_item') ?? [];
-        $query = $menuItemModel->where('parent_id IS NULL');
-        if (!empty($level1_ids)) {
-            $query->orWhereIn('parent_id', $level1_ids);
-        }
-        // Excluir el ítem actual de la lista de posibles padres
-        $query->where('id_item !=', $id);
+    // Lógica para obtener solo padres de Nivel 1 y Nivel 2
+    $parentItems = $menuService->getActiveSubOptions(0);
+    // Excluir el ítem actual de la lista de posibles padres se hace en la vista o aquí filtrando
+    $parentItems = array_filter($parentItems, fn($p) => $p['id_item'] != $id);
 
         $data = [
             'titulo' => 'Editar Servicio #' . $id,
             'service' => $service,
-            'parent_items' => $query->orderBy('nombre_item', 'ASC')->findAll(),
+            'parent_items' => $parentItems,
         ];
 
         return view('admin/servicios/editar', $data);
@@ -229,7 +215,7 @@ class AdminController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $menuItemModel = new MenuItemModel();
+        $menuService = service('menuService');
         $data = $this->request->getPost();
 
         if (empty($data['parent_id'])) {
@@ -241,7 +227,7 @@ class AdminController extends BaseController
             return redirect()->back()->withInput()->with('error', 'Un servicio no puede ser su propia categoría padre.');
         }
 
-        if ($menuItemModel->update($id, $data)) {
+        if ($menuService->updateItem($id, $data)) {
             return redirect()->to(site_url(route_to('panel.servicios.index')))->with('success', 'Servicio actualizado exitosamente.');
         }
 
@@ -259,24 +245,15 @@ class AdminController extends BaseController
             return redirect()->to(site_url(route_to('panel.servicios.index')))->with('error', 'ID de servicio inválido.');
         }
 
-        $menuItemModel = new MenuItemModel();
+        $menuService = service('menuService');
 
-        // Lógica de seguridad: Verificar si el ítem tiene hijos
-        $childCount = $menuItemModel->where('parent_id', $id)->countAllResults();
-
-        if ($childCount > 0) {
+        if (! $menuService->deleteItem($id)) {
             return redirect()->to(site_url(route_to('panel.servicios.index')))
-                             ->with('error', 'No se puede eliminar una categoría que contiene sub-servicios. Por favor, elimina o reasigna los sub-servicios primero.');
-        }
-
-        // Proceder con la eliminación
-        if ($menuItemModel->delete($id)) {
-            return redirect()->to(site_url(route_to('panel.servicios.index')))
-                             ->with('success', 'Servicio eliminado exitosamente.');
+                             ->with('error', 'No se puede eliminar una categoría que contiene sub-servicios o ocurrió un error.');
         }
 
         return redirect()->to(site_url(route_to('panel.servicios.index')))
-                         ->with('error', 'No se pudo eliminar el servicio.');
+                         ->with('success', 'Servicio eliminado exitosamente.');
     }
 
     /**
@@ -284,7 +261,7 @@ class AdminController extends BaseController
      */
     public function viewCotizacion(int $id_cotizacion)
     {
-        $viewService = new QuotationViewService();
+        $viewService = service('quotationViewService');
         $data = $viewService->getDataForQuotationDetail($id_cotizacion);
         return view('admin/cotizaciones/detalle', $data);
     }
@@ -314,7 +291,7 @@ class AdminController extends BaseController
 
     public function updateCotizacion()
     {
-        $quotationService = new QuotationService();
+        $quotationService = service('quotationService');
         $validationRules = $quotationService->getValidationRules();
         $cotizacionId = $this->request->getPost('id_cotizacion');
 
@@ -355,8 +332,8 @@ class AdminController extends BaseController
             return redirect()->back()->withInput()->with('error', 'Datos inválidos para actualizar el estado.');
         }
 
-        $quotationModel = new QuotationModel();
-        $updateResult = $quotationModel->update($cotizacionId, ['status' => $newStatus]);
+    $quotationModel = new QuotationModel();
+    $updateResult = $quotationModel->update($cotizacionId, ['status' => $newStatus]);
 
         if ($updateResult) {
             return redirect()->to(route_to('panel.cotizaciones.view', $cotizacionId))->with('success', 'El estado de la cotización ha sido actualizado.');

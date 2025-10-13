@@ -23,7 +23,7 @@ class QuotationController extends BaseController
 
     public function show($id = null)
     {
-        $viewService = new QuotationViewService();
+        $viewService = service('quotationViewService') ?? new QuotationViewService();
         try {
             $data = $viewService->getDataForQuotationDetail($id);
             return $this->respond($data);
@@ -34,7 +34,7 @@ class QuotationController extends BaseController
 
     public function create()
     {
-        $quotationService = new QuotationService();
+        $quotationService = service('quotationService');
         $rules = $quotationService->getValidationRules();
 
         if (!$this->validate($rules)) {
@@ -56,7 +56,7 @@ class QuotationController extends BaseController
 
     public function update($id = null)
     {
-        $quotationService = new QuotationService();
+        $quotationService = service('quotationService');
         $rules = $quotationService->getValidationRules();
 
         if (!$this->validate($rules)) {

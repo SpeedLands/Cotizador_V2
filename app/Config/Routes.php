@@ -16,6 +16,11 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api'], function($route
 // --- Rutas Públicas de la API v1 (Sin autenticación) ---
 $routes->post('api/v1/public/quotations', 'Api\PublicController::createQuotation');
 $routes->post('api/v1/public/quotations/history', 'Api\PublicController::getHistory');
+$routes->get('api/v1/public/menu/root-items', 'Api\PublicController::getRootMenuItems');
+$routes->get('api/v1/public/menu/sub-items/(:num)', 'Api\PublicController::getSubMenuItems/$1');
+// Servicios públicos
+$routes->get('api/v1/public/services', 'Api\PublicController::getServices');
+$routes->get('api/v1/public/services/(:num)', 'Api\PublicController::getService/$1');
  
 // --- Rutas de la API v1 para la App Móvil (Protegidas por JWT) ---
 $routes->group('api/v1', ['namespace' => 'App\Controllers\Api', 'filter' => 'jwtAuth'], function ($routes) {
@@ -26,8 +31,18 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api', 'filter' => 'jwt
     // Cotizaciones (Recurso RESTful)
     $routes->resource('quotations', ['controller' => 'QuotationController']);
     $routes->post('quotations/status/(:num)', 'QuotationController::updateStatus/$1');
-    // Servicios/Menu (Recurso RESTful)
-    $routes->resource('services', ['controller' => 'MenuItemController', 'only' => ['index', 'show']]);
+    // Servicios/Menu (Recurso RESTful completo para admins)
+    $routes->resource('services', ['controller' => 'MenuItemController']);
+
+    // Operaciones administrativas (mirror del panel web)
+    $routes->get('admin/quotations/view/(:num)', 'AdminController::viewCotizacion/$1');
+    $routes->get('admin/quotations/edit/(:num)', 'AdminController::editCotizacion/$1');
+    $routes->post('admin/quotations/update', 'AdminController::updateCotizacion');
+    $routes->post('admin/quotations/update-status', 'AdminController::updateStatus');
+    // Notificaciones (admin)
+    $routes->get('notifications', 'AdminNotificationController::index');
+    $routes->post('notifications/(:num)/read', 'AdminNotificationController::markAsRead/$1');
+    $routes->post('notifications/mark-read', 'AdminNotificationController::markReadBulk');
 });
 
 // Rutas Públicas (Formulario de Cotización)
