@@ -5,26 +5,19 @@ namespace App\Services;
 use App\Models\MenuItemModel;
 use App\Models\QuotationModel;
 
-/**
- * Servicio para preparar los datos para las vistas de cotizaciones.
- */
 class QuotationViewService
 {
     private QuotationModel $quotationModel;
     private MenuItemModel $menuItemModel;
+    private MenuService $menuService;
 
     public function __construct()
     {
         $this->quotationModel = new QuotationModel();
         $this->menuItemModel = new MenuItemModel();
+        $this->menuService = service('menuService');
     }
 
-    /**
-     * Obtiene y procesa todos los datos necesarios para la vista de detalle de una cotización.
-     *
-     * @param int $id_cotizacion
-     * @return array
-     */
     public function getDataForQuotationDetail(int $id_cotizacion): array
     {
         $cotizacion = $this->quotationModel->find($id_cotizacion);
@@ -33,95 +26,123 @@ class QuotationViewService
         }
 
         $baseURL = base_url('panel');
-
-        $navLinks = [
-            'Dashboard' => ['url' => $baseURL . '/dashboard', 'active' => false],
-            'Cotizaciones' => ['url' => '#', 'active' => true],
-            'Calendario' => ['url' => '#', 'active' => false],
-            'Servicios' => ['url' => '#', 'active' => false],
-        ];
-
         $uiLabels = [
-            'social' => 'Evento Social',
-            'empresarial' => 'Evento Empresarial',
-            'otro' => 'Otro Evento',
-            'recomendacion' => 'Recomendación',
-            'redes' => 'Redes Sociales',
-            'restaurante' => 'Por el Restaurante',
-            'hombres' => 'Hombres',
-            'mujeres' => 'Mujeres',
-            'ninos' => 'Niños',
-            'mixto' => 'Mixto',
-            'si' => 'Sí',
-            'no' => 'No',
-            'pendiente' => 'Pendiente',
-            'confirmado' => 'Confirmado',
-            'cancelado' => 'Cancelado',
-            'pagado' => 'Pagado',
-            'contactado' => 'Contactado',
-            'en_revision' => 'En Revisión',
+            'social' => 'Evento Social', 'empresarial' => 'Evento Empresarial', 'otro' => 'Otro Evento',
+            'recomendacion' => 'Recomendación', 'redes' => 'Redes Sociales', 'restaurante' => 'Por el Restaurante',
+            'hombres' => 'Hombres', 'mujeres' => 'Mujeres', 'ninos' => 'Niños', 'mixto' => 'Mixto',
+            'si' => 'Sí', 'no' => 'No', 'pendiente' => 'Pendiente', 'confirmado' => 'Confirmado',
+            'cancelado' => 'Cancelado', 'pagado' => 'Pagado', 'contactado' => 'Contactado', 'en_revision' => 'En Revisión',
+            'buffet_self_service' => 'Buffet Self-Service', 'buffet_asistido' => 'Buffet Asistido por Personal', 'servicio_a_la_mesa' => 'Servicio a la Mesa',
         ];
 
-        // Procesar y agrupar los servicios seleccionados
-        $serviciosAgrupados = $this->groupSelectedServices($cotizacion['detalle_menu']);
+        $serviciosAgrupados = $this->groupSelectedServices($cotizacion);
 
         return [
             'titulo' => 'Detalle de Cotización',
             'cotizacion' => $cotizacion,
             'servicios_seleccionados' => $serviciosAgrupados,
             'uiLabels' => $uiLabels,
-            'navLinks' => $navLinks,
             'baseURL' => $baseURL,
             'isLoggedIn' => session()->get('isLoggedIn') ?? false,
         ];
     }
 
-    /**
-     * Agrupa los ítems de menú seleccionados en una estructura jerárquica para la vista.
-     *
-     * @param array $menuSeleccionado
-     * @return array
-     */
-    private function groupSelectedServices(array $menuSeleccionado): array
+    private function groupSelectedServices(array $cotizacion): array
     {
+        $menuSeleccionado = $cotizacion['detalle_menu'] ?? [];
         if (empty($menuSeleccionado)) {
             return [];
         }
 
-        $allMenuItems = $this->menuItemModel->findAll();
-        $menuMap = [];
-        foreach ($allMenuItems as $item) {
-            $menuMap[$item['id_item']] = $item;
+        $selectedItemIds = $this->flattenMenuSelectionIds($menuSeleccionado);
+        if (empty($selectedItemIds)) {
+            return [];
         }
 
+        $fullItemTreeIds = $this->menuService->getItemIdsWithAncestors($selectedItemIds);
+        $allItems = $this->menuService->getItemsByIds($fullItemTreeIds);
+        $itemsById = array_column($allItems, null, 'id_item');
+
+        // Asumimos que las cantidades están en el campo 'detalle_menu' de una forma que el frontend nos daría.
+        // Como no lo tenemos, extraemos las cantidades de los platos principales del propio `detalle_menu`
+        $menuQuantities = $this->extractQuantities($menuSeleccionado);
+
         $serviciosAgrupados = [];
-        foreach ($menuSeleccionado as $itemId => $cantidad) {
-            if ($cantidad <= 0 || !isset($menuMap[$itemId])) continue;
 
-            $item = $menuMap[$itemId];
-            $hasChildren = $this->menuItemModel->where('parent_id', $itemId)->countAllResults() > 0;
+        foreach ($selectedItemIds as $itemId) {
+            if (!isset($itemsById[$itemId])) continue;
 
-            if ($item['parent_id'] === null || $hasChildren) {
-                continue; // Ignorar categorías raíz y contenedores intermedios
+            $item = $itemsById[$itemId];
+
+            // Ignorar ítems que son solo contenedores y no una selección final cuantificable.
+            if ($this->menuService->hasActiveChildren($item['id_item']) && $item['tipo_ui'] !== 'quantity' && $item['precio_unitario'] == 0) {
+                continue;
             }
 
             $path = [];
             $currentId = $itemId;
-            while ($currentId !== null && isset($menuMap[$currentId])) {
-                array_unshift($path, $menuMap[$currentId]); // Construir la ruta en orden
-                $currentId = $menuMap[$currentId]['parent_id'];
+            while ($currentId !== null && isset($itemsById[$currentId])) {
+                array_unshift($path, $itemsById[$currentId]);
+                $currentId = $itemsById[$currentId]['parent_id'];
+            }
+
+            $baseQuantity = 1;
+            $mainDishQty = $this->findMainDishQuantity($itemId, $menuQuantities, $itemsById);
+
+            if ($mainDishQty !== null) {
+                $baseQuantity = $mainDishQty;
+            } elseif ($item['per_person']) {
+                $baseQuantity = (int)$cotizacion['num_invitados'];
             }
 
             $rootName = $path[0]['nombre_item'] ?? 'Otros';
+            $pathNames = array_map(fn($p) => $p['nombre_item'], array_slice($path, 1));
+
             $serviciosAgrupados[$rootName][] = [
-                'path' => $path, // CRÍTICO: Añadir la ruta jerárquica para la vista.
+                'full_path' => implode(' > ', $pathNames),
                 'nombre' => $item['nombre_item'],
-                'cantidad' => ($item['tipo_ui'] === 'quantity') ? $cantidad : 'Sí',
-                'precio' => $item['precio_unitario'],
-                'subtotal' => $item['precio_unitario'] * $cantidad,
+                'cantidad' => $baseQuantity,
+                'precio_unitario' => $item['precio_unitario'],
             ];
         }
 
         return $serviciosAgrupados;
+    }
+
+    private function flattenMenuSelectionIds(array $selection): array
+    {
+        $result = [];
+        foreach ($selection as $key => $value) {
+            if (is_numeric($key)) $result[] = (int)$key;
+            if (is_array($value)) {
+                $result = array_merge($result, $this->flattenMenuSelectionIds($value));
+            } elseif (is_numeric($value)) {
+                $result[] = (int)$value;
+            }
+        }
+        return array_unique($result);
+    }
+
+    private function extractQuantities(array $selection) : array
+    {
+        $quantities = [];
+        foreach($selection as $key => $value) {
+            if (is_numeric($key) && !is_array($value)) {
+                $quantities[$key] = $value;
+            }
+        }
+        return $quantities;
+    }
+
+    private function findMainDishQuantity($itemId, $mainDishQuantities, $itemsById)
+    {
+        if (isset($mainDishQuantities[$itemId])) {
+            return (int)$mainDishQuantities[$itemId];
+        }
+        $currentItem = $itemsById[$itemId] ?? null;
+        if ($currentItem && $currentItem['parent_id']) {
+            return $this->findMainDishQuantity($currentItem['parent_id'], $mainDishQuantities, $itemsById);
+        }
+        return null;
     }
 }

@@ -17,21 +17,31 @@ class MenuService
     }
 
     /**
-     * Devuelve sub-opciones activas por parent_id
+     * Devuelve sub-opciones activas por parent_id, opcionalmente filtradas por tipo de comida.
      *
      * @param int $parentId
+     * @param string $mealType 'desayuno', 'comida', o 'ambos'
      * @return array
      */
-    public function getActiveSubOptions(int $parentId): array
+    public function getActiveSubOptions(int $parentId, string $mealType = 'ambos'): array
     {
-        // Soportar parentId == 0 o null como raíz (parent_id IS NULL)
+        $builder = $this->menuItemModel->where('activo', 1);
+
         if ($parentId === 0 || $parentId === null) {
-            return $this->menuItemModel->where('parent_id', null)
-                ->where('activo', 1)->findAll();
+            $builder->where('parent_id', null);
+        } else {
+            $builder->where('parent_id', $parentId);
         }
 
-        return $this->menuItemModel->where('parent_id', $parentId)
-            ->where('activo', 1)->findAll();
+        // Aplicar filtro de tipo de comida si no es 'ambos'
+        if ($mealType !== 'ambos') {
+            $builder->groupStart()
+                    ->where('tipo_comida', $mealType)
+                    ->orWhere('tipo_comida', 'ambos') // Incluir siempre los que aplican a ambos
+                    ->groupEnd();
+        }
+
+        return $builder->findAll();
     }
 
     /**
@@ -65,6 +75,16 @@ class MenuService
     public function getById(int $id): ?array
     {
         return $this->menuItemModel->find($id);
+    }
+
+    /**
+     * Devuelve el ítem raíz del menú (aquel sin padre).
+     *
+     * @return array|null
+     */
+    public function getRootItem(): ?array
+    {
+        return $this->menuItemModel->where('parent_id', null)->where('activo', 1)->first();
     }
 
     /**
@@ -115,5 +135,59 @@ class MenuService
         }
 
         return (bool) $this->menuItemModel->delete($id);
+    }
+
+    /**
+     * Dado un array de IDs, devuelve un array con esos IDs y todos sus ancestros.
+     *
+     * @param array $itemIds
+     * @return array
+     */
+    public function getItemIdsWithAncestors(array $itemIds): array
+    {
+        if (empty($itemIds)) {
+            return [];
+        }
+
+        // Usamos un array asociativo como un Set para evitar duplicados
+        $allIds = array_flip($itemIds);
+
+        // Hacemos una copia de los IDs para iterar, ya que modificaremos el Set
+        $queue = $itemIds;
+
+        while (!empty($queue)) {
+            $currentItemId = array_shift($queue);
+
+            // Hacemos una consulta para obtener solo el parent_id
+            $item = $this->menuItemModel->select('parent_id')->find($currentItemId);
+
+            if ($item && $item['parent_id']) {
+                $parentId = $item['parent_id'];
+
+                // Si el padre no está ya en nuestro Set, lo añadimos
+                if (!isset($allIds[$parentId])) {
+                    $allIds[$parentId] = count($allIds); // El valor no importa
+                    $queue[] = $parentId; // Añadimos el padre a la cola para buscar a sus ancestros
+                }
+            }
+        }
+
+        return array_keys($allIds);
+    }
+
+    /**
+     * Verifica si un ítem de menú tiene hijos activos.
+     *
+     * @param int $itemId
+     * @return bool
+     */
+    public function hasActiveChildren(int $itemId): bool
+    {
+        $count = $this->menuItemModel
+            ->where('parent_id', $itemId)
+            ->where('activo', 1)
+            ->countAllResults();
+
+        return $count > 0;
     }
 }

@@ -48,9 +48,12 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api', 'filter' => 'jwt
 // Rutas Públicas (Formulario de Cotización)
 $routes->get('/', 'QuotationController::index');
 $routes->post('cotizacion/submit', 'QuotationController::submitQuote');
-$routes->post('cotizacion/ajax/suboptions', 'QuotationController::loadSubOptionsAjax');
+$routes->post('cotizacion/ajax/item-details', 'QuotationController::ajax_get_item_details');
+$routes->post('cotizacion/ajax/menu-items', 'QuotationController::ajax_get_menu_items');
+$routes->post('cotizacion/ajax/menu-categories', 'QuotationController::ajax_get_menu_categories');
 $routes->post('cotizacion/ajax/calculate', 'QuotationController::calculateQuoteAjax');
 $routes->get('cotizacion/confirmacion/(:num)', 'QuotationController::confirmation/$1');
+$routes->get('cotizacion/pdf/(:alphanum)', 'QuotationController::downloadPdf/$1');
 $routes->get('cotizacion/fechas-ocupadas', 'QuotationController::fechasOcupadas');
 
 // Rutas de Administración (Login y Dashboard)
@@ -75,5 +78,6 @@ $routes->group('panel', ['filter' => 'adminAuth'], function($routes) {
     $routes->get('cotizaciones/ver/(:num)', 'AdminController::viewCotizacion/$1', ['as' => 'panel.cotizaciones.view']);
     $routes->get('cotizaciones/editar/(:num)', 'AdminController::editCotizacion/$1', ['as' => 'panel.cotizaciones.edit']);
     $routes->post('cotizaciones/actualizar', 'AdminController::updateCotizacion', ['as' => 'panel.cotizaciones.update']);
-    $routes->post('cotizaciones/actualizar-estado', 'AdminController::updateStatus', ['as' => 'panel.cotizaciones.updateStatus']); // <-- NUEVA RUTA
+    $routes->post('cotizaciones/actualizar-estado', 'AdminController::updateStatus', ['as' => 'panel.cotizaciones.updateStatus']);
+    $routes->post('cotizaciones/anticipo', 'AdminController::addAnticipo', ['as' => 'panel.cotizaciones.anticipo']);
 });

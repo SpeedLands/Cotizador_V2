@@ -82,19 +82,11 @@ function translate($value, $labels) {
                                         <li class="flex justify-between items-start">
                                             <div class="text-gray-800">
                                                 <i class="bi bi-check text-green-500 mr-1"></i>
-                                                <?php 
-                                                    $path_names = [];
-                                                    for ($i = 1; $i < count($servicio['path']); $i++) {
-                                                        $path_names[] = esc($servicio['path'][$i]['nombre_item']);
-                                                    }
-                                                    echo implode(' > ', $path_names);
-                                                ?>
+                                                <?= esc($servicio['full_path']) ?>
                                             </div>
                                             <span class="text-gray-600 text-right flex-shrink-0 ml-4">
-                                                <?php if($servicio['cantidad'] !== 'Sí'): ?>
-                                                    Cant: <span class="font-medium"><?= esc($servicio['cantidad']) ?></span>
-                                                <?php endif; ?>
-                                                ($<?= number_format($servicio['precio'], 2) ?> c/u)
+                                                Cant: <span class="font-medium"><?= esc($servicio['cantidad']) ?></span>
+                                                ($<?= number_format($servicio['precio_unitario'], 2) ?> c/u)
                                             </span>
                                         </li>
                                     <?php endforeach; ?>
@@ -116,13 +108,27 @@ function translate($value, $labels) {
                         <strong class="text-2xl text-indigo-600">$<?= number_format($cotizacion['total_estimado'], 2) ?></strong>
                     </li>
                 </ul>
-                <div class="mt-6 pt-6 border-t text-center">
+                <div class="mt-6 pt-4 text-center">
+                    <!-- Disclaimer -->
+                    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg mb-6 text-left">
+                        <p class="font-bold">Aviso Importante</p>
+                        <p class="text-sm">
+                            Este evento no está confirmado hasta que se complete el proceso de confirmación por WhatsApp. El precio mostrado es un estimado y está sujeto a cambios basados en los detalles finales y la disponibilidad.
+                        </p>
+                    </div>
+
                     <h2 class="text-xl font-semibold mb-2 text-gray-800">Siguiente Paso: Confirma por WhatsApp</h2>
                     <p class="text-sm text-gray-500 mb-4">Haz clic en el botón para iniciar una conversación con nuestro equipo y finalizar los detalles.</p>
                     <a href="<?= esc($whatsapp_link) ?>" target="_blank" class="inline-flex items-center justify-center w-full sm:w-auto py-3 px-8 border border-transparent rounded-xl shadow-lg text-lg font-bold text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-green-400 transition duration-150">
                         <i class="bi bi-whatsapp mr-3"></i>
                         Confirmar Cotización
                     </a>
+                    <?php if (!empty($cotizacion['download_token'])): ?>
+                    <a href="<?= base_url('cotizacion/pdf/' . $cotizacion['download_token']) ?>" class="inline-flex items-center justify-center w-full sm:w-auto mt-4 py-3 px-8 border border-gray-300 rounded-xl shadow-lg text-lg font-bold text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-gray-200 transition duration-150">
+                        <i class="bi bi-file-earmark-pdf mr-3"></i>
+                        Descargar PDF
+                    </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

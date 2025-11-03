@@ -16,11 +16,12 @@ class QuotationModel extends Model
     protected $allowedFields = [
         'cliente_nombre', 'cliente_whatsapp', 'num_invitados',
         'fecha_evento', 'detalle_menu', 'notas_adicionales',
-        'tipo_evento', 'nombre_empresa', 'hora_inicio', 'hora_consumo', 
-        'hora_finalizacion', 'direccion_evento', 'mesa_mantel', 
-        'mesa_mantel_especificar', 'dificultad_montaje', 'como_nos_conocio', 
+        'tipo_evento', 'nombre_empresa', 'hora_inicio', 'hora_consumo',
+        'hora_finalizacion', 'direccion_evento', 'mesa_mantel',
+        'mesa_mantel_especificar', 'dificultad_montaje', 'como_nos_conocio',
         'tipo_consumidores', 'restricciones_alimenticias', 'rango_presupuesto',
-        'total_estimado', 'status'
+        'total_estimado', 'status', 'anticipo', 'resta',
+        'download_token', 'modalidad_servicio'
     ];
 
     // Manejo de Tiempos

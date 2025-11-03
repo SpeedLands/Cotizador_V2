@@ -32,13 +32,15 @@
                                    id="qty_<?= esc($option['id_item']) ?>" 
                                    min="0" 
                                    value="0" 
+                                   data-parent-id="<?= esc($option['parent_id']) ?>"
                                    class="w-1/5 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-center">
                         <?php else: ?>
                             <!-- Tipo Checkbox/Radio -->
                             <input type="<?= esc($option['tipo_ui']) ?>" 
                                    name="menu_selection[<?= esc($option['id_item']) ?>]" 
                                    id="opt_<?= esc($option['id_item']) ?>" 
-                                   value="<?= esc($option['id_item']) ?>" 
+                                   value="<?= esc($option['id_item']) ?>"
+                                   data-parent-id="<?= esc($option['parent_id']) ?>"
                                    class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
                             <label for="opt_<?= esc($option['id_item']) ?>" class="ml-3 text-gray-700 cursor-pointer">
                                 <?= esc($option['nombre_item']) ?> 

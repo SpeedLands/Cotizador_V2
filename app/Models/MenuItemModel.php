@@ -19,6 +19,7 @@ class MenuItemModel extends Model
         'tipo_ui',
         'precio_unitario',
         'activo',
+        'tipo_comida',
     ];
 
     // Dates

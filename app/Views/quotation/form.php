@@ -27,6 +27,39 @@
         #whatsapp {
             padding-left: 52px !important; /* Ajusta este valor si es necesario */
         }
+        .quantity-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #e2e8f0;
+            color: #4a5568;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .quantity-btn:hover {
+            background-color: #cbd5e0;
+        }
+        .quantity-display {
+            min-width: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .meal-type-filter-btn {
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-weight: 600;
+            transition: all 0.2s;
+            background-color: #f3f4f6;
+            color: #4b5563;
+        }
+        .meal-type-filter-btn.active, .meal-type-filter-btn:hover {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.11.2/build/js/intlTelInput.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -80,7 +113,7 @@
                                 </div>
                                 <div>
                                     <label for="cantidad_invitados" class="block text-base font-semibold text-gray-800 mb-2">Cantidad de Invitados<span class="text-red-500">*</span></label>
-                                    <input type="number" name="num_invitados" id="cantidad_invitados" min="10" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value="<?= old('num_invitados', 30) ?>" required>
+                                    <input type="number" name="num_invitados" id="cantidad_invitados" min="15" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value="<?= old('num_invitados', 30) ?>" required>
                                 </div>
                                 <div>
                                     <label for="fecha_evento" class="block text-base font-semibold text-gray-800 mb-2">Fecha del Evento<span class="text-red-500">*</span></label>
@@ -105,16 +138,42 @@
                             </div>
                         </fieldset>
 
-                        <!-- 3. Selección de Servicios (Ahora con Modales) -->
+                        <!-- 3. Selección de Servicios (Flujo por Pasos) -->
                         <fieldset class="mb-10">
                             <legend class="text-2xl font-bold text-gray-800 border-b pb-4 mb-6 w-full">3. Selección de Servicios</legend>
-                            <!-- Contenedor para ítems raíz (Renderizado por View Cell) -->
-                            <div id="menu-options-root" class="space-y-4 mb-6">
-                                <?= view_cell('\App\Libraries\MenuCell::renderRootItems') ?>
+
+                            <!-- Contenedor del Menú Principal -->
+                            <div id="step-2-menu" class="mt-8">
+                                <div class="mb-4">
+                                     <h4 class="text-xl font-semibold">Arma tu Menú</h4>
+                                </div>
+
+                                <!-- Filtro de Tipo de Comida (solo para Platillos Individuales) -->
+                                <div id="meal-type-filter-container" class="hidden my-4 p-3 bg-gray-50 rounded-lg">
+                                    <p class="font-semibold text-gray-700 mb-2">Filtrar por tipo de comida:</p>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" class="meal-type-filter-btn active" data-meal-type="ambos">Todos</button>
+                                        <button type="button" class="meal-type-filter-btn" data-meal-type="desayuno">Desayuno</button>
+                                        <button type="button" class="meal-type-filter-btn" data-meal-type="comida">Comida</button>
+                                    </div>
+                                </div>
+
+                                <!-- Selector de Categorías (Renderizado dinámicamente) -->
+                                <div class="mb-6">
+                                    <div id="category-tabs" class="flex flex-wrap gap-3">
+                                        <!-- Las pestañas de categoría se cargarán aquí -->
+                                    </div>
+                                </div>
+
+                                <!-- Contenedor para ítems raíz (Renderizado dinámicamente) -->
+                                <div id="menu-options-root" class="space-y-4 mb-6">
+                                    <!-- El contenido se cargará aquí vía AJAX -->
+                                </div>
                             </div>
-                            <!-- Contenedor para ítems seleccionados (para mantener el estado) -->
+
+                            <!-- Contenedor para ítems seleccionados (para mantener el estado, no cambia) -->
                             <div id="selected-items-container" class="hidden">
-                                <!-- Aquí se inyectarán los inputs ocultos de los ítems seleccionados en la modal -->
+                                <!-- Aquí se inyectarán los inputs ocultos de los ítems seleccionados -->
                             </div>
                         </fieldset>
 
@@ -133,6 +192,14 @@
                                 <div id="campo_mesa_mantel_especificar" style="display: none;">
                                     <label for="mesa_mantel_especificar" class="block text-base font-semibold text-gray-800 mb-2">Por favor especifica</label>
                                     <input type="text" name="mesa_mantel_especificar" id="mesa_mantel_especificar" value="<?= old('mesa_mantel_especificar') ?>" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label for="modalidad_servicio" class="block text-base font-semibold text-gray-800 mb-2">Modalidad de Servicio<span class="text-red-500">*</span></label>
+                                    <select id="modalidad_servicio" name="modalidad_servicio" class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                                        <option value="buffet_self_service">Buffet / Self Service (Menores a 20 personas)</option>
+                                        <option value="buffet_asistido">Buffet asistido por staff</option>
+                                        <option value="servicio_a_la_mesa">Servicio a la mesa</option>
+                                    </select>
                                 </div>
                                 <div class="md:col-span-2">
                                     <label for="dificultad_montaje" class="block text-base font-semibold text-gray-800 mb-2">Dificultad de Montaje<span class="text-red-500">*</span></label>
@@ -216,10 +283,17 @@
                         <!-- El contenido AJAX (Nivel 2 o Nivel 3) se inyectará aquí -->
                     </div>
 
-                    <div class="mt-6 flex justify-between pt-4 border-t">
+                    <div class="mt-6 flex justify-between items-center pt-4 border-t">
                         <button id="back-modal-btn" class="bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition hidden">
                             ← Regresar
                         </button>
+
+                        <!-- Campo de Cantidad -->
+                        <div class="flex items-center gap-2">
+                            <label for="modal-quantity" class="text-sm font-medium text-gray-700">Cantidad:</label>
+                            <input type="number" id="modal-quantity" min="1" class="w-20 px-2 py-1 text-center border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+
                         <button id="confirm-modal-btn" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition ml-auto">
                             Confirmar y Cerrar
                         </button>
@@ -313,6 +387,7 @@
                 inputMesaMantel.prop('required', false); // Quita el atributo requerido
             }
         }).trigger('change'); // Dispara al cargar para establecer el estado inicial
+
         // =================================================================
         // INICIALIZACIÓN DE intl-tel-input (Usando CDN)
         // =================================================================
@@ -339,7 +414,31 @@
         let currentParentId = null;
 
         // --- Eventos de la Modal ---
-        $('#close-modal-btn, #confirm-modal-btn').on('click', function() {
+        $('#close-modal-btn, #confirm-modal-btn').on('click', function(e) {
+            // Si se confirma, guardar la cantidad del platillo principal
+            if (e.currentTarget.id === 'confirm-modal-btn') {
+                const $quantitySelector = $('#modal-quantity').closest('.flex.items-center.gap-2');
+
+                // Solo guardar la cantidad principal si el selector está visible
+                if ($quantitySelector.is(':visible')) {
+                    const quantity = $('#modal-quantity').val();
+
+                    if (mainDishParentId && quantity > 0) {
+                        const mainDishInput = `<input type="hidden"
+                                                      class="main-dish-item"
+                                                      value="${mainDishParentId}"
+                                                      data-quantity="${quantity}">`;
+
+                        selectedItemsContainer.find(`.main-dish-item[value="${mainDishParentId}"]`).remove();
+                        selectedItemsContainer.append(mainDishInput);
+                    }
+                } else {
+                    // Si el selector está oculto, la cantidad se define por las sub-opciones.
+                    // Nos aseguramos de eliminar cualquier input de cantidad para el platillo padre para evitar confusiones en el resumen.
+                    selectedItemsContainer.find(`.main-dish-item[value="${mainDishParentId}"]`).remove();
+                }
+            }
+
             menuModal.addClass('hidden');
             navigationStack = []; // Limpiar el stack al cerrar
             backModalBtn.addClass('hidden');
@@ -361,178 +460,217 @@
             }
         });
 
-        // --- Evento de Apertura de Modal (Al hacer clic en el CONTENEDOR de Nivel 1) ---
-        $('#menu-options-root').on('click', '.block.cursor-pointer', function(e) {
-            const $input = $(this).find('input[type="checkbox"], input[type="radio"]');
-            const parentId = $input.val();
-            
-            // Si el click fue directamente en el input, dejamos que el evento 'change' lo maneje
-            // if ($(e.target).is('input')) {
-            //     // Si es un radio, limpiamos los otros grupos antes de abrir la modal
-            //     // if ($input.attr('type') === 'radio' && $input.is(':checked')) {
-            //     //     $('#menu-options-root input[type="radio"]').not($input).each(function() {
-            //     //         const otherId = $(this).val();
-            //     //         // selectedItemsContainer.find(`input[data-parent-id="${otherId}"]`).remove();
-            //     //     });
-            //     // }
-            //     // Si es un checkbox y se desmarca, la lógica de limpieza está en el evento 'change'
-            //     if ($input.attr('type') === 'checkbox' && !$input.is(':checked')) {
-            //         return; 
-            //     }
-            // } else {
-            //     // Si el click fue en el div/label, marcamos el input y abrimos la modal
-            //     if (!$input.is(':checked')) {
-            //         $input.prop('checked', true).trigger('change');
-            //     }
-            // }
-            
-            navigationStack = [parentId]; // Iniciar el stack con el ID del Nivel 1
-            loadModalContent(parentId);
-        });
-        
-        // --- Evento de Limpieza (Al desmarcar un checkbox de Nivel 1) ---
-        // $('#menu-options-root').on('change', 'input[type="checkbox"]', function() {
-        //     if (!$(this).is(':checked')) {
-        //         const parentId = $(this).val();
-        //         // selectedItemsContainer.find(`input[data-parent-id="${parentId}"]`).remove();
-        //         updateInstantQuote();
-        //     }
-        // });
-        
-        // --- Evento de Navegación Interna (Al hacer clic en un ítem de Nivel 2 dentro de la Modal) ---
-        menuModal.on('click', '.modal-nav-item', function(e) {
-            e.preventDefault();
-            const nextParentId = $(this).data('item-id');
-            navigationStack.push(nextParentId); // Añadir el nuevo nivel al stack
-            loadModalContent(nextParentId);
+        // --- LÓGICA DE LA MODAL REFACTORIZADA PARA FLUJO MULTI-PASO ---
+
+        let modalStepsData = [];
+        let currentStepIndex = 0;
+        let mainDishParentId = null;
+
+        // --- Evento de Apertura de Modal ---
+        $('#menu-options-root').on('click', '.menu-item-selectable', function(e) {
+            const itemId = $(this).data('id');
+            const hasChildren = $(this).data('has-children');
+
+            if (hasChildren) {
+                loadAndInitializeModal(itemId);
+            } else {
+                // Lógica para ítems simples (sin personalización)
+                // Por ejemplo, agregarlo directamente al resumen
+                const hiddenInput = `<input type="hidden" name="menu_selection[${itemId}]" value="${itemId}" data-main-dish="${itemId}">`;
+                selectedItemsContainer.append(hiddenInput);
+                updateInstantQuote();
+            }
         });
 
-        // --- Función Principal de Carga de Contenido AJAX ---
-        function loadModalContent(parentId) {
-            currentParentId = parentId;
+        // --- Botón de "Regresar" y "Siguiente" dentro de la modal ---
+        backModalBtn.on('click', function() {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                renderCurrentStep();
+            }
+        });
+        
+        $('#modal-content').on('click', '#next-step-btn', function() {
+            if (currentStepIndex < modalStepsData.length - 1) {
+                currentStepIndex++;
+                renderCurrentStep();
+            }
+        });
+
+        // --- Función Principal de Carga y Renderizado ---
+        function loadAndInitializeModal(itemId) {
+            mainDishParentId = itemId;
             const csrfTokenName = $('input[name="csrf_test_name"]').attr('name');
             const csrfTokenValue = $('input[name="csrf_test_name"]').val();
-            
-            modalContent.html('<p class="text-center text-blue-600 mt-10">Cargando opciones...</p>');
+
+            // Rellenar la cantidad por defecto
+            const defaultQuantity = $('#cantidad_invitados').val() || 1;
+            $('#modal-quantity').val(defaultQuantity);
+
+            modalContent.html('<p class="text-center text-blue-600 mt-10">Cargando personalización...</p>');
             menuModal.removeClass('hidden');
-            
-            // Mostrar/Ocultar botón de regresar
-            if (navigationStack.length > 1) {
-                backModalBtn.removeClass('hidden');
-            } else {
-                backModalBtn.addClass('hidden');
-            }
 
             $.ajax({
-                url: '<?= url_to('QuotationController::loadSubOptionsAjax') ?>',
+                url: '<?= site_url('cotizacion/ajax/item-details') ?>',
                 type: 'POST',
-                data: {
-                    parent_id: parentId,
-                    [csrfTokenName]: csrfTokenValue
-                },
+                data: { parent_id: itemId, [csrfTokenName]: csrfTokenValue },
                 dataType: 'json',
                 success: function(response) {
                     $('input[name="csrf_test_name"]').val(response.token);
-                    
                     if (response.success) {
-                        modalContent.html(response.html);
-                        
-                        // 1. Restaurar el estado de los inputs (checkboxes/quantities)
-                        restoreInputState(parentId);
-                        
-                        // 2. Actualizar el título de la modal
-                        const parentName = modalContent.find('#modal-content-title').data('parent-name');
-                        modalTitle.text(parentName || 'Selección de Opciones');
-                        
-                        // 3. Escuchar cambios dentro de la modal para guardar el estado
-                        modalContent.off('change', 'input[name^="menu_selection"]').on('change', 'input[name^="menu_selection"]', function() {
-                            saveInputState($(this));
-                        });
-                        
+                        modalStepsData = response.steps;
+                        currentStepIndex = 0;
+                        modalTitle.text(response.parentName || 'Personaliza tu platillo');
+                        renderCurrentStep();
+
+                        // --- LÓGICA DE VISIBILIDAD DEL SELECTOR DE CANTIDAD PRINCIPAL ---
+                        // Comprobar si alguno de los pasos renderizados contiene un selector de cantidad.
+                        // Esto indica que la cantidad se define a nivel de sub-opción.
+                        if (modalContent.find('.simple-quantity-item').length > 0) {
+                            // Ocultar el contenedor del input de cantidad en el footer de la modal
+                             $('#modal-quantity').closest('.flex.items-center.gap-2').hide();
+                        } else {
+                            // Mostrar para ítems personalizables estándar
+                             $('#modal-quantity').closest('.flex.items-center.gap-2').show();
+                        }
+                        // --- FIN LÓGICA DE VISIBILIDAD ---
+
                     } else {
-                        modalContent.html('<p class="text-red-500 text-center mt-10">Error al cargar las opciones.</p>');
+                        modalContent.html('<p class="text-red-500">Error al cargar opciones.</p>');
                     }
                 },
-                error: function(xhr, status, error) {
-                    console.error("Error al cargar sub-opciones:", error);
-                    modalContent.html('<p class="text-red-500 text-center mt-10">Error de conexión. Inténtalo de nuevo.</p>');
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.token) {
-                            $('input[name="csrf_test_name"]').val(response.token);
-                        }
-                    } catch (e) {}
+                error: function() {
+                    modalContent.html('<p class="text-red-500">Error de conexión.</p>');
                 }
             });
         }
         
-        // --- Funciones de Mantenimiento de Estado (CRÍTICO para la Modal) ---
-        
-        // Guarda el estado de un input en el contenedor oculto del formulario principal
-        function saveInputState($input) {
-            const itemId = $input.val();
-            const parentId = currentParentId;
-            const inputName = $input.attr('name'); // Esto es 'menu_selection[ID]'
-            const inputType = $input.attr('type');
-            let value = null;
-            
-            // Asignar el valor a 'value'
-            if (inputType === 'radio' || inputType === 'checkbox') {
-                value = $input.is(':checked') ? itemId : null;
-            } else if (inputType === 'number') {
-                value = $input.val() > 0 ? $input.val() : null;
+        function renderCurrentStep() {
+            const step = modalStepsData[currentStepIndex];
+            let html = `<h4 class="text-lg font-semibold text-gray-700 mb-4">${step.stepTitle}</h4>`;
+            const optionsContainerClass = (step.tipo_ui === 'quantity') ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
+            html += `<div class="${optionsContainerClass}">`;
+
+            step.options.forEach(opt => {
+                const inputType = step.tipo_ui;
+                const name = `menu_selection[${mainDishParentId}][${step.stepId}]`;
+                const id = `option-${opt.id_item}`;
+
+                if (inputType === 'quantity') {
+                    html += `
+                        <div class="simple-quantity-item p-3 border-2 border-gray-200 rounded-lg" data-item-id="${opt.id_item}" data-main-dish="${mainDishParentId}">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-semibold text-gray-800">${opt.nombre_item}</h3>
+                                    ${opt.precio_unitario > 0 ? `<p class="text-sm text-indigo-500">+$${parseFloat(opt.precio_unitario).toFixed(2)}</p>` : ''}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="quantity-btn quantity-decrease-btn">-</button>
+                                    <input type="text" readonly class="quantity-input w-10 text-center bg-transparent font-medium" value="0" name="quantity_${opt.id_item}">
+                                    <button type="button" class="quantity-btn quantity-increase-btn">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else { // 'radio' or 'checkbox'
+                    html += `
+                        <label for="${id}" class="block cursor-pointer">
+                            <input type="${inputType}" id="${id}" name="${name}" value="${opt.id_item}" class="peer sr-only">
+                            <div class="p-3 border-2 border-gray-200 rounded-lg hover:border-indigo-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-medium text-gray-800">${opt.nombre_item}</span>
+                                    ${opt.precio_unitario > 0 ? `<span class="text-sm text-indigo-500">+$${parseFloat(opt.precio_unitario).toFixed(2)}</span>` : ''}
+                                </div>
+                            </div>
+                        </label>
+                    `;
+                }
+            });
+            html += '</div>';
+
+            if (currentStepIndex < modalStepsData.length - 1) {
+                html += '<div class="text-right mt-6"><button id="next-step-btn" class="bg-indigo-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-indigo-700">Siguiente →</button></div>';
             }
-            
-            // 1. Eliminar el input anterior con el mismo nombre
-            selectedItemsContainer.find(`input[name="${inputName}"]`).remove();
-            
-            if (value !== null && value !== '0') {
-                // 2. Añadir el input oculto al formulario principal
-                const hiddenInput = `<input type="hidden" name="${inputName}" value="${value}" data-parent-id="${parentId}">`;
-                selectedItemsContainer.append(hiddenInput);
-            }
-            
-            // 3. Lógica de Radio Button (Mutuamente Excluyente)
-            if (inputType === 'radio' && value !== null) {
-                // Eliminar TODOS los otros inputs ocultos que pertenecen al MISMO GRUPO DE RADIO.
-                selectedItemsContainer.find(`input[data-parent-id="${parentId}"][type="hidden"]`).not(`[name="${inputName}"]`).remove();
-            }
-            
-            // Recalcular el estimado inmediatamente
-            updateInstantQuote();
+
+            modalContent.html(html);
+            backModalBtn.toggleClass('hidden', currentStepIndex === 0);
+
+            restoreInputState(mainDishParentId, step.stepId);
+
+            modalContent.find(`input[type="radio"], input[type="checkbox"]`).off('change').on('change', function() {
+                saveInputState($(this), mainDishParentId, step.stepId);
+            });
+
+            modalContent.find('.simple-quantity-item .quantity-btn').off('click').on('click', function() {
+                const $container = $(this).closest('.simple-quantity-item');
+                const $input = $container.find('.quantity-input');
+                let currentValue = parseInt($input.val(), 10);
+                const itemId = $container.data('item-id').toString();
+                const mainDishId = $container.data('main-dish').toString();
+
+                if ($(this).hasClass('quantity-increase-btn')) {
+                    if (currentValue === 0) {
+                        currentValue = parseInt($('#cantidad_invitados').val(), 10) || 1;
+                    } else {
+                        currentValue++;
+                    }
+                } else if ($(this).hasClass('quantity-decrease-btn')) {
+                    currentValue = Math.max(0, currentValue - 1);
+                }
+
+                $input.val(currentValue);
+                saveQuantitySubOptionState(itemId, mainDishId, currentValue);
+            });
         }
         
-        // Restaura el estado de los inputs al cargar la modal
-        function restoreInputState(parentId) {
-            console.log("res modl")
-            // Iterar sobre los inputs en la modal
-            modalContent.find('input[name^="menu_selection"]').each(function() {
-                const $input = $(this);
-                const inputName = $input.attr('name');
-                const inputType = $input.attr('type');
-                
-                // Buscar el input oculto correspondiente en el formulario principal
-                const $hiddenInput = selectedItemsContainer.find(`input[name="${inputName}"]`);
-                
-                if ($hiddenInput.length > 0) {
-                    const hiddenValue = $hiddenInput.val();
-                    
-                    if (inputType === 'radio' || inputType === 'checkbox') {
-                        // Para radio/checkbox, si el valor del input visible coincide con el valor guardado
-                        if ($input.val() === hiddenValue) {
-                            $input.prop('checked', true);
-                        }
-                    } else if (inputType === 'number') {
-                        // Para number, simplemente restaurar el valor guardado
-                        $input.val(hiddenValue);
-                    }
-                } else {
-                    // Asegurar que los inputs no seleccionados estén limpios
-                    if (inputType === 'number') {
-                        $input.val(0);
-                    } else {
-                        $input.prop('checked', false);
-                    }
+        function saveQuantitySubOptionState(itemId, mainDishId, quantity) {
+            selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`).remove();
+
+            if (quantity > 0) {
+                const subOptionInput = `<input type="hidden"
+                                              class="main-dish-item"
+                                              value="${itemId}"
+                                              data-main-dish="${mainDishId}"
+                                              data-quantity="${quantity}">`;
+                selectedItemsContainer.append(subOptionInput);
+            }
+
+            updateInstantQuote();
+        }
+
+        function saveInputState($input, mainDishId, stepId) {
+            const inputName = $input.attr('name');
+            const inputType = $input.attr('type');
+            const value = $input.is(':checked') ? $input.val() : null;
+
+            if (inputType === 'radio') {
+                selectedItemsContainer.find(`input[name^="menu_selection[${mainDishId}][${stepId}]"]`).remove();
+            }
+
+            selectedItemsContainer.find(`input[name="${inputName}"][value="${$input.val()}"]`).remove();
+
+            if (value) {
+                const hiddenInput = `<input type="hidden" name="${inputName}" value="${value}" data-main-dish="${mainDishId}">`;
+                selectedItemsContainer.append(hiddenInput);
+            }
+            updateInstantQuote();
+        }
+
+        function restoreInputState(mainDishId, stepId) {
+            const stepSelectionInputs = selectedItemsContainer.find(`input[name^="menu_selection[${mainDishId}][${stepId}]"]`);
+            stepSelectionInputs.each(function() {
+                const savedValue = $(this).val();
+                modalContent.find(`input[value="${savedValue}"]`).prop('checked', true);
+            });
+
+            modalContent.find('.simple-quantity-item').each(function() {
+                const $container = $(this);
+                const itemId = $container.data('item-id').toString();
+                const $savedInput = selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`);
+
+                if ($savedInput.length) {
+                    const savedQuantity = $savedInput.data('quantity');
+                    $container.find('.quantity-input').val(savedQuantity);
                 }
             });
         }
@@ -568,6 +706,13 @@
         });
 
          $('#quotation-form').on('submit', function(e) {
+            // Validación para asegurar que se ha seleccionado al menos un platillo.
+            if ($('#selected-items-container').children().length === 0) {
+                alert('Por favor, selecciona al menos un platillo o servicio del menú antes de enviar la cotización.');
+                e.preventDefault(); // Detener el envío del formulario
+                return;
+            }
+
             // 1. Obtener el número completo en formato internacional
             const fullNumber = iti.getNumber();
             
@@ -595,26 +740,45 @@
             const csrfTokenValue = $('input[name="csrf_test_name"]').val();
             const numInvitados = $('#cantidad_invitados').val();
             
-            // Recopilar todos los ítems seleccionados (incluyendo los ocultos)
-            const menuSelections = {};
-            selectedItemsContainer.find('input[name^="menu_selection"]').each(function() {
-                const name = $(this).attr('name'); // menu_selection[ID]
-                const id = name.match(/\[(\d+)\]/)[1];
-                menuSelections[id] = $(this).val();
+            // Recopilar todos los ítems seleccionados (adaptado para estructura simple y anidada)
+            const selectedIds = new Set();
+
+            // 1. Inputs de selecciones simples (no personalizables)
+            $('#menu-options-root .menu-item-selectable[data-has-children="false"] input:checked').each(function() {
+                 const id = $(this).val();
+                 selectedIds.add(id);
             });
-            
-            // Recopilar cantidades de inputs visibles (si se usa el campo quantity en el Nivel 1)
-            $('#menu-options-root').find('input[type="number"]').each(function() {
-                const name = $(this).attr('name');
-                const id = name.match(/\[(\d+)\]/)[1];
-                if ($(this).val() > 0) {
-                    menuSelections[id] = $(this).val();
+
+            // 2. Inputs de personalización anidada desde la modal
+            selectedItemsContainer.find('input[type="hidden"]').each(function() {
+                // Agregar el ID de la opción/sub-opción seleccionada
+                const optionId = $(this).val();
+                selectedIds.add(optionId);
+
+                // Agregar el ID del platillo principal al que pertenece esta opción
+                const mainDishId = $(this).data('main-dish');
+                if (mainDishId) {
+                    selectedIds.add(mainDishId.toString());
                 }
+            });
+
+            // Convertir el Set al formato de objeto que espera el backend
+            const menuSelections = {};
+            selectedIds.forEach(id => {
+                menuSelections[id] = id;
+            });
+
+            const menuQuantities = {};
+            selectedItemsContainer.find('.main-dish-item').each(function() {
+                const itemId = $(this).val();
+                const quantity = $(this).data('quantity');
+                menuQuantities[itemId] = quantity;
             });
 
             const postData = {
                 num_invitados: numInvitados,
                 menu_selection: menuSelections,
+                menu_quantities: menuQuantities, // Enviar las cantidades al backend
                 [csrfTokenName]: csrfTokenValue
             };
             
@@ -636,12 +800,101 @@
                     if (response.success) {
                         $('#instant-quote-total').text(response.total_formatted);
                         
-                        // Mostrar resumen de ítems
+                        // --- START NEW GROUPING LOGIC ---
+
+                        // 1. Create a map of parent-child relationships from the hidden inputs
+                        const itemRelationships = {}; // { childId: parentId }
+                        selectedItemsContainer.find('input[data-main-dish]').each(function() {
+                            const childId = $(this).val();
+                            const parentId = $(this).data('main-dish');
+                            // Ensure the relationship is not self-referential
+                            if (childId != parentId) {
+                                itemRelationships[childId] = parentId.toString();
+                            }
+                        });
+
+                        // 2. Group summary items from the AJAX response
+                        const mainItems = {};
+                        const childItems = [];
+
+                        response.summary.forEach(item => {
+                            const itemId = item.id.toString();
+                            const parentId = itemRelationships[itemId];
+
+                            if (parentId && parentId !== itemId) {
+                                item.parentId = parentId; // Tag item with its parent
+                                childItems.push(item);
+                            } else {
+                                mainItems[itemId] = item;
+                                mainItems[itemId].children = []; // Prepare children array
+                            }
+                        });
+
+                        // 3. Associate children with their parents
+                        childItems.forEach(child => {
+                            if (mainItems[child.parentId]) {
+                                mainItems[child.parentId].children.push(child);
+                            } else {
+                                // Orphan child: render it as a main item to prevent it from disappearing
+                                mainItems[child.id.toString()] = child;
+                                mainItems[child.id.toString()].children = [];
+                            }
+                        });
+
+                        // 4. Build the new HTML from the grouped structure
                         let summaryHtml = '';
-                        for (const item of response.summary) {
-                            summaryHtml += `<div class="flex justify-between"><span>${item.name}</span><span class="font-medium">${item.subtotal_formatted}</span></div>`;
+                        for (const itemId in mainItems) {
+                            if (!mainItems.hasOwnProperty(itemId)) continue;
+
+                            const mainItem = mainItems[itemId];
+
+                            summaryHtml += `<div class="py-2 border-b border-gray-100 group">`;
+                            // Main item display
+                            summaryHtml += `
+                                <div class="flex justify-between items-center">
+                                    <span class="font-semibold text-gray-800">${mainItem.name}</span>
+                                    <div class="flex items-center">
+                                        <span class="font-bold text-gray-900 mr-3">${mainItem.subtotal_formatted}</span>
+                                        <button type="button" class="remove-item-btn text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity" data-item-id="${mainItem.id}">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>`;
+
+                            // Quantity controls for main item ONLY
+                            if (mainItem.quantity) {
+                                summaryHtml += `
+                                    <div class="flex items-center gap-3 mt-1">
+                                        <span class="text-sm text-gray-500">Cantidad:</span>
+                                        <button type="button" class="quantity-btn quantity-decrease-btn" data-item-id="${mainItem.id}">-</button>
+                                        <span class="quantity-display">${mainItem.quantity}</span>
+                                        <button type="button" class="quantity-btn quantity-increase-btn" data-item-id="${mainItem.id}">+</button>
+                                    </div>`;
+                            }
+
+                            // Display children, if any
+                            if (mainItem.children && mainItem.children.length > 0) {
+                                summaryHtml += `<div class="pl-4 mt-2 space-y-1 border-l-2 border-gray-200">`;
+                                mainItem.children.forEach(child => {
+                                    summaryHtml += `
+                                        <div class="flex justify-between items-center text-sm group">
+                                            <span class="text-gray-600 pl-2"> - ${child.name}</span>
+                                            <div class="flex items-center">
+                                                <span class="text-gray-800 mr-3">${child.subtotal_formatted}</span>
+                                                <button type="button" class="remove-item-btn text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity" data-item-id="${child.id}">
+                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                                                </button>
+                                            </div>
+                                        </div>`;
+                                });
+                                summaryHtml += `</div>`;
+                            }
+
+                            summaryHtml += `</div>`;
                         }
+
                         $('#quote-summary').html(summaryHtml);
+                        // --- END NEW GROUPING LOGIC ---
                     }
                 },
                 error: function(xhr, status, error) {
@@ -654,6 +907,193 @@
         // Ejecutar al cargar la página para inicializar el estimado
         updateParentState(); // Inicializar el estado de los padres
         updateInstantQuote();
+
+        // --- Lógica para Filtrar Menú por Tipo de Comida ---
+        $('#category-tabs').on('click', '.meal-type-btn', function() {
+            const parentId = $(this).data('category-id');
+
+            // Actualizar estilo de los botones
+            $('#category-tabs .meal-type-btn').removeClass('bg-blue-600 text-white').addClass('bg-gray-200 text-gray-600');
+            $(this).removeClass('bg-gray-200 text-gray-600').addClass('bg-blue-600 text-white');
+
+            // Cargar los ítems del menú correspondientes
+            loadMenuItems(parentId);
+        });
+
+        function loadMenuItems(parentId) {
+            const csrfTokenName = $('input[name="csrf_test_name"]').attr('name');
+            const csrfTokenValue = $('input[name="csrf_test_name"]').val();
+
+            $('#menu-options-root').html('<p class="text-center text-blue-600">Cargando platillos...</p>');
+
+            $.ajax({
+                url: '<?= site_url('cotizacion/ajax/menu-items') ?>',
+                type: 'POST',
+                data: {
+                    parent_id: parentId,
+                    [csrfTokenName]: csrfTokenValue
+                },
+                dataType: 'json',
+                success: function(response) {
+                    $('input[name="csrf_test_name"]').val(response.token);
+                    if (response.success) {
+                        $('#menu-options-root').html(response.html);
+                    } else {
+                        $('#menu-options-root').html('<p class="text-red-500 text-center">Error al cargar el menú.</p>');
+                    }
+                },
+                error: function() {
+                    $('#menu-options-root').html('<p class="text-red-500 text-center">Error de conexión.</p>');
+                }
+            });
+        }
+
+        // =================================================================
+        // LÓGICA DE CARGA INICIAL DEL MENÚ
+        // =================================================================
+        function loadMenuCategories(mealType = 'ambos') {
+            const csrfTokenName = $('input[name="csrf_test_name"]').attr('name');
+            const csrfTokenValue = $('input[name="csrf_test_name"]').val();
+
+            $('#category-tabs').html('<p class="text-center text-blue-600">Cargando categorías...</p>');
+
+            $.ajax({
+                url: '<?= site_url('cotizacion/ajax/menu-categories') ?>', // Nuevo endpoint simplificado
+                type: 'POST',
+                data: {
+                    meal_type: mealType,
+                    [csrfTokenName]: csrfTokenValue
+                },
+                dataType: 'json',
+                success: function(response) {
+                    $('input[name="csrf_test_name"]').val(response.token);
+                    if (response.success && response.categories.length > 0) {
+                        $('#category-tabs').empty();
+
+                        response.categories.forEach((cat, index) => {
+                             const button = `
+                                <button type="button"
+                                        class="meal-type-btn px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-200 ${index === 0 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}"
+                                        data-category-id="${cat.id_item}">
+                                    ${cat.nombre_item}
+                                </button>
+                            `;
+                            $('#category-tabs').append(button);
+                        });
+
+                        // Cargar los platillos de la primera categoría por defecto
+                        loadMenuItems(response.categories[0].id_item);
+
+                    } else {
+                        $('#category-tabs').html('<p class="text-red-500 text-center">No se encontraron categorías.</p>');
+                    }
+                },
+                error: function() {
+                    $('#category-tabs').html('<p class="text-red-500 text-center">Error de conexión.</p>');
+                }
+            });
+        }
+
+        // --- Lógica para el Filtro de Tipo de Comida ---
+        $('#meal-type-filter-container').on('click', '.meal-type-filter-btn', function() {
+            // Estilo de botones
+            $('.meal-type-filter-btn').removeClass('active');
+            $(this).addClass('active');
+
+            // Volver a cargar las categorías con el filtro
+            const mealType = $(this).data('meal-type');
+            loadMenuCategories(mealType);
+        });
+
+        // --- Carga Inicial ---
+        $(document).ready(function() {
+            // El filtro "ambos" está activo por defecto
+            $('#meal-type-filter-container').slideDown();
+            loadMenuCategories('ambos');
+        });
+
+        // --- Lógica para Eliminar Ítems desde el Resumen ---
+        $('#quote-summary').on('click', '.remove-item-btn', function() {
+            const itemIdToRemove = $(this).data('item-id').toString();
+
+            // Diferenciar si es un platillo principal (con personalizaciones) o una opción
+            const isMainDish = selectedItemsContainer.find(`input[data-main-dish="${itemIdToRemove}"]`).length > 0;
+
+            if (isMainDish) {
+                // Si es un platillo principal, eliminarlo junto con todas sus opciones
+                selectedItemsContainer.find(`input[data-main-dish="${itemIdToRemove}"]`).remove();
+            }
+
+            // Eliminar el input oculto del ítem específico (sea principal o sub-opción)
+            // Esto también maneja ítems simples
+            selectedItemsContainer.find(`input[value="${itemIdToRemove}"]`).remove();
+
+            // Desmarcar visualmente el checkbox/radio correspondiente si está visible
+            $(`.menu-item-selectable input[value="${itemIdToRemove}"]`).prop('checked', false);
+
+            // 3. Recalcula y actualiza la UI
+            updateInstantQuote();
+            updateParentState();
+        });
+
+        // --- Lógica para los botones de Cantidad en el Resumen ---
+        $('#quote-summary').on('click', '.quantity-btn', function() {
+            const itemId = $(this).data('item-id').toString();
+            const $mainDishInput = selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`);
+
+            if ($mainDishInput.length) {
+                let currentQuantity = parseInt($mainDishInput.data('quantity'), 10);
+
+                if ($(this).hasClass('quantity-increase-btn')) {
+                    currentQuantity++;
+                } else if ($(this).hasClass('quantity-decrease-btn') && currentQuantity > 1) {
+                    currentQuantity--;
+                }
+
+                // Actualizar la cantidad en el atributo de datos y recalcular
+                $mainDishInput.data('quantity', currentQuantity);
+                updateInstantQuote();
+            }
+        });
+
+        // --- LÓGICA PARA EL NUEVO SELECTOR DE CANTIDAD DE PLATILLOS SIMPLES ---
+        $('#menu-options-root').on('click', '.simple-quantity-item .quantity-btn', function() {
+            const $container = $(this).closest('.simple-quantity-item');
+            const $input = $container.find('.quantity-input');
+            let currentValue = parseInt($input.val(), 10);
+
+            if ($(this).hasClass('quantity-increase-btn')) {
+                if (currentValue === 0) {
+                    // Si es el primer incremento, usar la cantidad de invitados
+                    currentValue = parseInt($('#cantidad_invitados').val(), 10) || 1;
+                } else {
+                    currentValue++;
+                }
+            } else if ($(this).hasClass('quantity-decrease-btn')) {
+                currentValue = Math.max(0, currentValue - 1);
+            }
+
+            $input.val(currentValue).trigger('change');
+        });
+
+        $('#menu-options-root').on('change', '.simple-quantity-item .quantity-input', function() {
+            const $container = $(this).closest('.simple-quantity-item');
+            const itemId = $container.data('item-id').toString();
+            const quantity = parseInt($(this).val(), 10);
+
+            // Remover el input oculto si ya existe para evitar duplicados
+            selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`).remove();
+
+            if (quantity > 0) {
+                const mainDishInput = `<input type="hidden"
+                                              class="main-dish-item"
+                                              value="${itemId}"
+                                              data-quantity="${quantity}">`;
+                selectedItemsContainer.append(mainDishInput);
+            }
+
+            updateInstantQuote();
+        });
     </script>
 </body>
 </html>

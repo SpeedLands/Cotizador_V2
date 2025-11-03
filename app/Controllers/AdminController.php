@@ -342,6 +342,29 @@ class AdminController extends BaseController
         return redirect()->back()->withInput()->with('error', 'No se pudo actualizar el estado de la cotización.');
     }
 
+    public function addAnticipo()
+    {
+        $cotizacionId = $this->request->getPost('id_cotizacion');
+        $anticipo = $this->request->getPost('anticipo');
+
+        $quotationModel = new \App\Models\QuotationModel();
+        $cotizacion = $quotationModel->find($cotizacionId);
+
+        if ($cotizacion) {
+            $total = $cotizacion['total_estimado'];
+            $resta = $total - $anticipo;
+
+            $data = [
+                'anticipo' => $anticipo,
+                'resta' => $resta,
+            ];
+
+            $quotationModel->update($cotizacionId, $data);
+        }
+
+        return redirect()->back();
+    }
+
    public function logout()
     {
         $session = session();
