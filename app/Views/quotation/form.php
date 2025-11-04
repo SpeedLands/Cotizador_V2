@@ -426,16 +426,17 @@
                     if (mainDishParentId && quantity > 0) {
                         const mainDishInput = `<input type="hidden"
                                                       class="main-dish-item"
-                                                      value="${mainDishParentId}"
-                                                      data-quantity="${quantity}">`;
+                                                      name="menu_quantities[${mainDishParentId}]"
+                                                      value="${quantity}"
+                                                      data-item-id="${mainDishParentId}">`;
 
-                        selectedItemsContainer.find(`.main-dish-item[value="${mainDishParentId}"]`).remove();
+                        selectedItemsContainer.find(`.main-dish-item[data-item-id="${mainDishParentId}"]`).remove();
                         selectedItemsContainer.append(mainDishInput);
                     }
                 } else {
                     // Si el selector está oculto, la cantidad se define por las sub-opciones.
                     // Nos aseguramos de eliminar cualquier input de cantidad para el platillo padre para evitar confusiones en el resumen.
-                    selectedItemsContainer.find(`.main-dish-item[value="${mainDishParentId}"]`).remove();
+                    selectedItemsContainer.find(`.main-dish-item[data-item-id="${mainDishParentId}"]`).remove();
                 }
             }
 
@@ -624,14 +625,16 @@
         }
         
         function saveQuantitySubOptionState(itemId, mainDishId, quantity) {
-            selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`).remove();
+            selectedItemsContainer.find(`.main-dish-item[data-item-id="${itemId}"]`).remove();
 
             if (quantity > 0) {
+                // Also add the name attribute here to submit the quantity.
                 const subOptionInput = `<input type="hidden"
                                               class="main-dish-item"
-                                              value="${itemId}"
+                                              name="menu_quantities[${itemId}]"
+                                              value="${quantity}"
                                               data-main-dish="${mainDishId}"
-                                              data-quantity="${quantity}">`;
+                                              data-item-id="${itemId}">`;
                 selectedItemsContainer.append(subOptionInput);
             }
 
@@ -769,9 +772,10 @@
             });
 
             const menuQuantities = {};
-            selectedItemsContainer.find('.main-dish-item').each(function() {
-                const itemId = $(this).val();
-                const quantity = $(this).data('quantity');
+            // Correctly read quantities from the value attribute of quantity inputs.
+            selectedItemsContainer.find('input[name^="menu_quantities"]').each(function() {
+                const itemId = $(this).attr('name').match(/\[(\d+)\]/)[1];
+                const quantity = $(this).val();
                 menuQuantities[itemId] = quantity;
             });
 
@@ -1016,19 +1020,24 @@
         $('#quote-summary').on('click', '.remove-item-btn', function() {
             const itemIdToRemove = $(this).data('item-id').toString();
 
-            // Diferenciar si es un platillo principal (con personalizaciones) o una opción
-            const isMainDish = selectedItemsContainer.find(`input[data-main-dish="${itemIdToRemove}"]`).length > 0;
+            // Remove the quantity input for this item.
+            selectedItemsContainer.find(`input[name="menu_quantities[${itemIdToRemove}]"]`).remove();
 
+            // If it's a main dish, remove all its sub-options as well.
+            const isMainDish = selectedItemsContainer.find(`input[data-main-dish="${itemIdToRemove}"]`).length > 0;
             if (isMainDish) {
-                // Si es un platillo principal, eliminarlo junto con todas sus opciones
-                selectedItemsContainer.find(`input[data-main-dish="${itemIdToRemove}"]`).remove();
+                selectedItemsContainer.find(`input[data-main-dish="${itemIdToRemove}"]`).each(function() {
+                    const subOptionId = $(this).val();
+                    // Also remove any quantity inputs associated with sub-options
+                    selectedItemsContainer.find(`input[name="menu_quantities[${subOptionId}]"]`).remove();
+                    $(this).remove();
+                });
             }
 
-            // Eliminar el input oculto del ítem específico (sea principal o sub-opción)
-            // Esto también maneja ítems simples
+            // Remove the selection input itself.
             selectedItemsContainer.find(`input[value="${itemIdToRemove}"]`).remove();
 
-            // Desmarcar visualmente el checkbox/radio correspondiente si está visible
+            // Visually uncheck the corresponding checkbox/radio if it exists.
             $(`.menu-item-selectable input[value="${itemIdToRemove}"]`).prop('checked', false);
 
             // 3. Recalcula y actualiza la UI
@@ -1039,10 +1048,11 @@
         // --- Lógica para los botones de Cantidad en el Resumen ---
         $('#quote-summary').on('click', '.quantity-btn', function() {
             const itemId = $(this).data('item-id').toString();
-            const $mainDishInput = selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`);
+            // Find the quantity input by its name.
+            const $quantityInput = selectedItemsContainer.find(`input[name="menu_quantities[${itemId}]"]`);
 
-            if ($mainDishInput.length) {
-                let currentQuantity = parseInt($mainDishInput.data('quantity'), 10);
+            if ($quantityInput.length) {
+                let currentQuantity = parseInt($quantityInput.val(), 10);
 
                 if ($(this).hasClass('quantity-increase-btn')) {
                     currentQuantity++;
@@ -1050,8 +1060,8 @@
                     currentQuantity--;
                 }
 
-                // Actualizar la cantidad en el atributo de datos y recalcular
-                $mainDishInput.data('quantity', currentQuantity);
+                // Update the input's value and recalculate.
+                $quantityInput.val(currentQuantity);
                 updateInstantQuote();
             }
         });

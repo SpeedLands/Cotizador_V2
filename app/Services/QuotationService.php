@@ -67,7 +67,10 @@ class QuotationService
             'tipo_consumidores' => $data['tipo_consumidores'],
             'restricciones_alimenticias' => $data['restricciones_alimenticias'] ?? null,
             'rango_presupuesto' => $data['rango_presupuesto'] ?? null,
-            'detalle_menu'      => $menuSelection,
+            'detalle_menu'      => [
+                'selection' => $menuSelection,
+                'quantities' => $menuQuantities,
+            ],
             'notas_adicionales' => $data['notas_adicionales'] ?? null,
             'download_token'    => bin2hex(random_bytes(32)),
             'total_estimado'    => $totalEstimado,
@@ -86,31 +89,36 @@ class QuotationService
         return $id_cotizacion;
     }
 
-    private function calculateTotal(array $menuSelections, array $menuQuantities, int $numInvitados): float
+    private function calculateTotal(array $menuSelectionData, array $menuQuantities, int $numInvitados): float
     {
-        if (empty($menuSelections) || $numInvitados <= 0) {
+        if (empty($menuSelectionData) || $numInvitados <= 0) {
             return 0.00;
         }
 
         $menuService = service('menuService');
-        $selectedItemIds = $this->flattenMenuSelectionIds($menuSelections);
+
+        // This new method correctly extracts only the billable item IDs.
+        $selectedItemIds = $this->extractBillableItemIds($menuSelectionData);
 
         if (empty($selectedItemIds)) {
             return 0.00;
         }
 
+        // We still need all ancestors to correctly determine quantities.
         $fullItemTreeIds = $menuService->getItemIdsWithAncestors($selectedItemIds);
         $allItems = $menuService->getItemsByIds($fullItemTreeIds);
         $itemsById = array_column($allItems, null, 'id_item');
 
         $total = 0.00;
 
+        // Iterate only over the items that should be part of the total.
         foreach ($selectedItemIds as $itemId) {
             if (!isset($itemsById[$itemId])) continue;
 
             $item = $itemsById[$itemId];
             $baseQuantity = 1;
 
+            // Use the same robust quantity-finding logic as the AJAX endpoint.
             $mainDishQty = $this->findMainDishQuantity($itemId, $menuQuantities, $itemsById);
 
             if ($mainDishQty !== null) {
@@ -140,24 +148,33 @@ class QuotationService
         return null;
     }
 
-    private function flattenMenuSelectionIds(array $selection): array
+    /**
+     * Extracts all billable item IDs from the nested menu selection array.
+     *
+     * This includes:
+     * 1. The main dish IDs (top-level keys), which may have a base price.
+     * 2. The final selected option IDs (leaf node values).
+     * It correctly ignores intermediate step IDs.
+     */
+    private function extractBillableItemIds(array $selection): array
     {
-        $result = [];
-        foreach ($selection as $key => $value) {
-            // La clave siempre es un ID de un contenedor intermedio o un platillo principal
-            if (is_numeric($key)) {
-                $result[] = (int)$key;
-            }
+        $itemIds = [];
 
-            if (is_array($value)) {
-                $result = array_merge($result, $this->flattenMenuSelectionIds($value));
-            } else {
-                // El valor es el ID de la opción final seleccionada
-                if (is_numeric($value)) {
-                    $result[] = (int)$value;
-                }
+        // Add all top-level keys, which represent the main dishes or simple items.
+        $mainDishIds = array_keys($selection);
+        foreach ($mainDishIds as $id) {
+            if (is_numeric($id)) {
+                $itemIds[] = (int)$id;
             }
         }
-        return array_unique($result);
+
+        // Recursively find all leaf-node values, which are the final selections.
+        array_walk_recursive($selection, function ($value, $key) use (&$itemIds) {
+            if (is_numeric($value)) {
+                $itemIds[] = (int)$value;
+            }
+        });
+
+        return array_unique($itemIds);
     }
 }
