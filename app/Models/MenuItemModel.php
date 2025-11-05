@@ -18,6 +18,7 @@ class MenuItemModel extends Model
         'parent_id',
         'tipo_ui',
         'precio_unitario',
+        'per_person',
         'activo',
         'tipo_comida',
     ];

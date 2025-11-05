@@ -21,6 +21,204 @@ class AdminController extends BaseController
     }
 
     /**
+     * Muestra el formulario interactivo para crear un nuevo ítem de menú complejo.
+     */
+    public function createServiceInteractive()
+    {
+        $menuService = service('menuService');
+        $rootItem = $menuService->getRootItem();
+
+        if (!$rootItem) {
+            return redirect()->to(route_to('panel.servicios.index'))->with('error', 'No se encontró la categoría raíz. Por favor, ejecuta el MenuSeeder.');
+        }
+
+        // Obtener las subcategorías (hijas directas de la raíz)
+        $subCategories = $menuService->getActiveSubOptions($rootItem['id_item']);
+
+        $data = [
+            'titulo' => 'Añadir Nuevo Platillo Interactivo',
+            'root_category_id' => $rootItem['id_item'],
+            'sub_categories' => $subCategories,
+        ];
+
+        return view('admin/servicios/crear_interactivo', $data);
+    }
+
+    /**
+     * Procesa y guarda un nuevo ítem de menú complejo desde el builder interactivo.
+     */
+    public function editServiceInteractive($id)
+    {
+        $menuService = service('menuService');
+        $itemData = $menuService->getItemWithFullHierarchy((int)$id);
+
+        if (!$itemData) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+        // Obtener subcategorías para el dropdown (por si el usuario quiere cambiarla)
+        $rootItem = $menuService->getRootItem();
+        $subCategories = $rootItem ? $menuService->getActiveSubOptions($rootItem['id_item']) : [];
+
+        $data = [
+            'titulo' => 'Editar Platillo: ' . esc($itemData['nombre_item']),
+            'itemJSON' => json_encode($itemData),
+            'sub_categories' => $subCategories,
+        ];
+
+        return view('admin/servicios/editar_interactivo', $data);
+    }
+
+    public function updateServiceInteractive()
+    {
+        $menuService = service('menuService');
+        $db = \Config\Database::connect();
+
+        $jsonPayload = $this->request->getPost('menu_structure');
+        $serviceData = json_decode($jsonPayload, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE || empty($serviceData['main_item'])) {
+            return redirect()->back()->withInput()->with('error', 'Error en los datos enviados.');
+        }
+
+        $mainItemId = $serviceData['main_item']['id_item'];
+
+        $db->transStart();
+
+        try {
+            // 1. Actualizar el platillo principal
+            $menuService->updateItem($mainItemId, $serviceData['main_item']);
+
+            // 2. Eliminar toda la personalización existente
+            $menuService->deleteAllChildren($mainItemId);
+
+            // 3. Re-crear la personalización desde cero
+            if (isset($serviceData['steps'])) {
+                foreach ($serviceData['steps'] as $stepData) {
+                    $stepId = $menuService->createItem([
+                        'nombre_item' => $stepData['nombre_paso'],
+                        'parent_id'   => $mainItemId,
+                        'tipo_ui'     => $stepData['tipo_ui'],
+                        'activo'      => 1,
+                    ]);
+
+                    if (!$stepId) throw new \Exception('No se pudo re-crear un paso de personalización.');
+
+                    foreach ($stepData['options'] as $optionData) {
+                        $menuService->createItem([
+                            'nombre_item'     => $optionData['nombre_opcion'],
+                            'parent_id'       => $stepId,
+                            'tipo_ui'         => $stepData['tipo_ui'],
+                            'precio_unitario' => $optionData['precio_opcion'],
+                            'activo'          => 1,
+                        ]);
+                    }
+                }
+            }
+
+            $db->transCommit();
+            return redirect()->to(site_url(route_to('panel.servicios.index')))->with('success', 'Platillo actualizado exitosamente.');
+
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'Error en updateServiceInteractive: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Ocurrió un error al actualizar el platillo.');
+        }
+    }
+
+    /**
+     * Procesa y guarda un nuevo ítem de menú complejo desde el builder interactivo.
+     */
+    public function storeServiceInteractive()
+    {
+        $menuService = service('menuService');
+        $db = \Config\Database::connect();
+
+        $jsonPayload = $this->request->getPost('menu_structure');
+        $serviceData = json_decode($jsonPayload, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE || empty($serviceData['main_item'])) {
+            return redirect()->back()->withInput()->with('error', 'Error en los datos enviados. La estructura del menú es inválida.');
+        }
+
+        $db->transStart();
+
+        try {
+            // 1. Determinar el Parent ID (crear nueva subcategoría si es necesario)
+            $parentId = null;
+            if (!empty($serviceData['category']['new_category_name'])) {
+                // Crear la nueva subcategoría bajo la raíz
+                $newCategoryData = [
+                    'nombre_item' => $serviceData['category']['new_category_name'],
+                    'parent_id'   => $serviceData['category']['root_category_id'],
+                    'tipo_ui'     => 'checkbox', // Las subcategorías son contenedores
+                    'activo'      => 1,
+                ];
+                $parentId = $menuService->createItem($newCategoryData);
+                if (!$parentId) {
+                    throw new \Exception('No se pudo crear la nueva subcategoría.');
+                }
+            } else {
+                $parentId = $serviceData['category']['existing_category_id'];
+            }
+
+            // 2. Crear el platillo principal (main_item)
+            $mainItemData = $serviceData['main_item'];
+            $mainItemId = $menuService->createItem([
+                'nombre_item'     => $mainItemData['nombre_item'],
+                'descripcion'     => $mainItemData['descripcion'],
+                'parent_id'       => $parentId,
+                'tipo_ui'         => 'checkbox',
+                'precio_unitario' => $mainItemData['precio_unitario'],
+                'per_person'      => isset($mainItemData['per_person']) ? 1 : 0,
+                'activo'          => 1,
+                'tipo_comida'     => $mainItemData['tipo_comida'],
+            ]);
+
+            if (!$mainItemId) {
+                throw new \Exception("No se pudo crear el platillo principal.");
+            }
+
+            // 2. Iterar y crear los pasos de personalización y sus opciones
+            if (isset($serviceData['steps'])) {
+                foreach ($serviceData['steps'] as $stepData) {
+                    $stepId = $menuService->createItem([
+                        'nombre_item' => $stepData['nombre_paso'],
+                        'parent_id'   => $mainItemId,
+                        'tipo_ui'     => $stepData['tipo_ui'],
+                        'descripcion' => '',
+                        'precio_unitario' => 0,
+                        'activo'      => 1,
+                    ]);
+
+                    if (!$stepId) {
+                        throw new \Exception("No se pudo crear un paso de personalización.");
+                    }
+
+                    foreach ($stepData['options'] as $optionData) {
+                        $menuService->createItem([
+                            'nombre_item'     => $optionData['nombre_opcion'],
+                            'parent_id'       => $stepId,
+                            'tipo_ui'         => $stepData['tipo_ui'], // Las opciones heredan el tipo de UI del paso
+                            'precio_unitario' => $optionData['precio_opcion'],
+                            'activo'          => 1,
+                        ]);
+                    }
+                }
+            }
+
+            $db->transCommit();
+            return redirect()->to(site_url(route_to('panel.servicios.index')))->with('success', 'Servicio complejo añadido exitosamente.');
+
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'Error en storeServiceInteractive: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Ocurrió un error al guardar el servicio: ' . $e->getMessage());
+        }
+    }
+
+
+    /**
      * Muestra la vista del formulario de Login de Administración.
      */
     public function login()
@@ -107,6 +305,17 @@ class AdminController extends BaseController
         $dashboardService = service('adminDashboardService');
         $data = $dashboardService->getDashboardData();
         return view('admin/dashboard', $data);
+    }
+
+    /**
+     * Endpoint para obtener datos de la gráfica de distribución de totales.
+     */
+    public function getQuoteTotalDistributionData()
+    {
+        $quotationModel = new \App\Models\QuotationModel();
+        $data = $quotationModel->getQuoteTotalDistribution();
+
+        return $this->respond($data);
     }
 
     /**

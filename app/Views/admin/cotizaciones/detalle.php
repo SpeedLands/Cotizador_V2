@@ -95,6 +95,10 @@ function translate($value, $labels) {
                             <dt class="font-medium text-gray-700"><i class="bi bi-clock text-muted mr-2"></i>Horario</dt>
                             <dd class="text-gray-900"><?= date('h:i A', strtotime($cotizacion['hora_inicio'])) ?> - <?= date('h:i A', strtotime($cotizacion['hora_finalizacion'])) ?></dd>
                         </div>
+                         <div>
+                            <dt class="font-medium text-gray-700"><i class="bi bi-hand-thumbs-up-fill text-muted mr-2"></i>Modalidad de Servicio</dt>
+                            <dd class="text-gray-900"><?= esc($cotizacion['modalidad_servicio_label']) ?></dd>
+                        </div>
                         <div class="md:col-span-2">
                             <dt class="font-medium text-gray-700"><i class="bi bi-geo-alt-fill text-muted mr-2"></i>Dirección</dt>
                             <dd class="text-gray-900 whitespace-pre-wrap"><?= esc($cotizacion['direccion_evento']) ?></dd>
@@ -102,51 +106,41 @@ function translate($value, $labels) {
                     </dl>
                 </div>
 
-                <!-- Tarjeta: Servicios Seleccionados -->
-                <div class="card shadow-sm border-0 bg-white p-6 rounded-xl shadow-lg">
+                <!-- Tarjeta: Servicios Seleccionados (Nueva Estructura) -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h5 class="text-lg font-semibold mb-4 border-b pb-2"><i class="bi bi-card-checklist mr-2"></i>Servicios Seleccionados</h5>
                     
-                    <?php if(!empty($servicios_seleccionados)): ?>
-                        <div class="divide-y divide-gray-100">
-                            <?php foreach($servicios_seleccionados as $categoria => $items): ?>
-                                <div class="py-3">
-                                    <!-- Nombre de la Categoría (Nivel 1) -->
-                                    <h6 class="text-base font-bold text-indigo-600 mb-2"><?= esc($categoria) ?></h6>
+                    <?php if (!empty($menu_details)): ?>
+                        <div class="space-y-4">
+                            <?php foreach ($menu_details as $item): ?>
+                                <div class="p-4 border rounded-lg bg-gray-50">
+                                    <div class="flex justify-between items-center">
+                                        <h6 class="text-base font-bold text-indigo-600"><?= esc($item['nombre_item']) ?></h6>
+                                        <?php if ($item['quantity']): ?>
+                                            <span class="text-sm font-medium text-gray-700">Cantidad: <?= esc($item['quantity']) ?></span>
+                                        <?php endif; ?>
+                                    </div>
                                     
-                                    <!-- Lista de Ítems Detallados -->
-                                    <ul class="ml-4 space-y-3 text-sm">
-                                        <?php foreach($items as $servicio): ?>
-                                            <li class="flex justify-between items-start">
-                                                <div class="text-gray-800">
-                                                    <i class="bi bi-check text-green-500 mr-1"></i>
-                                                    
-                                                    <!-- CRÍTICO: Mostrar la ruta jerárquica -->
-                                                    <?php 
-                                                        $path_names = [];
-                                                        // Empezar desde el Nivel 2 (índice 1) hasta el final
-                                                        for ($i = 1; $i < count($servicio['path']); $i++) {
-                                                            $path_names[] = esc($servicio['path'][$i]['nombre_item']);
-                                                        }
-                                                        // Unir los nombres con un separador
-                                                        echo implode(' > ', $path_names);
-                                                    ?>
-                                                </div>
-                                                <span class="text-gray-600 text-right flex-shrink-0 ml-4">
-                                                    <?php if($servicio['cantidad'] !== 'Sí'): ?>
-                                                        Cant: <span class="font-medium"><?= esc($servicio['cantidad']) ?></span>
+                                    <?php if (!empty($item['sub_options'])): ?>
+                                        <ul class="mt-2 ml-4 space-y-1 text-sm list-disc list-inside text-gray-600">
+                                            <?php foreach ($item['sub_options'] as $sub): ?>
+                                                <li>
+                                                    <?= esc($sub['nombre_item']) ?>
+                                                    <?php if ($sub['quantity'] && $sub['quantity'] != $item['quantity']): // Mostrar solo si es diferente al padre ?>
+                                                        <span class="text-xs font-medium">(Cant: <?= esc($sub['quantity']) ?>)</span>
                                                     <?php endif; ?>
-                                                    ($<?= number_format($servicio['precio'], 2) ?> c/u)
-                                                </span>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <div class="py-3 text-gray-500">No se seleccionaron servicios principales.</div>
+                        <p class="text-gray-500">No se seleccionaron servicios en esta cotización.</p>
                     <?php endif; ?>
                 </div>
+
             </div>
 
             <!-- Columna Derecha: Estado, Finanzas y Acciones (4/12) -->

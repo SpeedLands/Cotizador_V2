@@ -35,112 +35,84 @@ class QuotationViewService
             'buffet_self_service' => 'Buffet Self-Service', 'buffet_asistido' => 'Buffet Asistido por Personal', 'servicio_a_la_mesa' => 'Servicio a la Mesa',
         ];
 
-        $serviciosAgrupados = $this->groupSelectedServices($cotizacion);
+        // Procesar detalles del menú
+        $processedMenu = $this->getProcessedMenuDetails($cotizacion);
+        // Traducir modalidad de servicio
+        $cotizacion['modalidad_servicio_label'] = $uiLabels[$cotizacion['modalidad_servicio']] ?? $cotizacion['modalidad_servicio'];
 
         return [
             'titulo' => 'Detalle de Cotización',
             'cotizacion' => $cotizacion,
-            'servicios_seleccionados' => $serviciosAgrupados,
+            'menu_details' => $processedMenu, // Usar la nueva estructura
             'uiLabels' => $uiLabels,
             'baseURL' => $baseURL,
             'isLoggedIn' => session()->get('isLoggedIn') ?? false,
         ];
     }
 
-    private function groupSelectedServices(array $cotizacion): array
+    private function getProcessedMenuDetails(array $cotizacion): array
     {
         $menuData = $cotizacion['detalle_menu'] ?? ['selection' => [], 'quantities' => []];
-        $menuSeleccionado = $menuData['selection'] ?? [];
-        $menuQuantities = $menuData['quantities'] ?? [];
+        $selection = $menuData['selection'] ?? [];
+        $quantities = $menuData['quantities'] ?? [];
 
-        if (empty($menuSeleccionado)) {
+        if (empty($selection) && empty($quantities)) {
             return [];
         }
 
-        // Use the corrected billable item extraction from the 'selection' part.
-        $selectedItemIds = $this->extractBillableItemIds($menuSeleccionado);
-        if (empty($selectedItemIds)) {
+        // 1. Extraer todos los IDs únicos de la selección y las cantidades.
+        $itemIds = array_keys($quantities);
+        array_walk_recursive($selection, function ($value) use (&$itemIds) {
+            if (is_numeric($value)) {
+                $itemIds[] = (int)$value;
+            }
+        });
+        $uniqueItemIds = array_unique($itemIds);
+
+        if (empty($uniqueItemIds)) {
             return [];
         }
 
-        // Fetch all necessary items and their ancestors to build paths.
-        $fullItemTreeIds = $this->menuService->getItemIdsWithAncestors($selectedItemIds);
-        $allItems = $this->menuService->getItemsByIds($fullItemTreeIds);
+        // 2. Obtener todos los items de la DB en una sola consulta
+        $allItems = $this->menuService->getItemsByIds($uniqueItemIds);
         $itemsById = array_column($allItems, null, 'id_item');
 
-        $numInvitados = (int) $cotizacion['num_invitados'];
-        $flatSummary = [];
+        // 3. Construir la estructura jerárquica
+        $structuredMenu = [];
+        $processedIds = []; // Mantener un registro de los IDs ya procesados
 
-        foreach ($selectedItemIds as $itemId) {
-            if (!isset($itemsById[$itemId])) continue;
+        // Unificar `selection` y `quantities` para procesar cada ID una sola vez
+        $mainItemIds = array_unique(array_merge(array_keys($selection), array_keys($quantities)));
+
+        foreach($mainItemIds as $itemId) {
+            if (!isset($itemsById[$itemId]) || in_array($itemId, $processedIds)) {
+                continue;
+            }
 
             $item = $itemsById[$itemId];
-            $baseQuantity = $item['per_person'] ? $numInvitados : 1;
+            $item['quantity'] = $quantities[$itemId] ?? null;
+            $item['sub_options'] = [];
 
-            // This logic now uses the saved quantities to find the correct quantity.
-            $mainDishQty = $this->findMainDishQuantity($itemId, $menuSeleccionado, $itemsById, $menuQuantities);
-
-            // The quantity for any sub-option is inherited from its main dish.
-            $finalQuantity = $mainDishQty ?? $baseQuantity;
-
-            // Build the full path for context (e.g., "Category > Item > Option").
-            $path = [];
-            $currentId = $itemId;
-            while ($currentId !== null && isset($itemsById[$currentId])) {
-                // Prepend to build the path from root to leaf.
-                array_unshift($path, $itemsById[$currentId]['nombre_item']);
-                $currentId = $itemsById[$currentId]['parent_id'];
-            }
-            // The very first element is the root node, which we can skip for a cleaner display.
-            if (count($path) > 1) {
-                array_shift($path);
+            // Procesar sub-opciones si existen en la sección 'selection'
+            if (isset($selection[$itemId]) && is_array($selection[$itemId])) {
+                $subItems = [];
+                array_walk_recursive($selection[$itemId], function($subId) use (&$subItems, $itemsById, $quantities, $item, &$processedIds){
+                     if (isset($itemsById[$subId])) {
+                        $subItem = $itemsById[$subId];
+                        // La cantidad de la sub-opción es la suya propia, o hereda la del padre
+                        $subItem['quantity'] = $quantities[$subId] ?? $item['quantity'];
+                        $subItems[] = $subItem;
+                        $processedIds[] = $subId; // Marcar como procesado
+                    }
+                });
+                $item['sub_options'] = $subItems;
             }
 
-            $flatSummary[] = [
-                'full_path' => implode(' > ', $path),
-                'nombre' => $item['nombre_item'],
-                'cantidad' => $finalQuantity,
-                'precio_unitario' => $item['precio_unitario'],
-            ];
+            // Añadir el item principal al resultado final
+            $structuredMenu[] = $item;
+            $processedIds[] = $itemId; // Marcar como procesado
         }
 
-        // Group by the first part of the path (the category).
-        $serviciosAgrupados = [];
-        foreach ($flatSummary as $item) {
-            $category = strtok($item['full_path'], ' > ');
-            $serviciosAgrupados[$category][] = $item;
-        }
-
-        return $serviciosAgrupados;
-    }
-
-    private function findMainDishQuantity($itemId, $menuSelection, $itemsById, $menuQuantities)
-    {
-        $currentItem = $itemsById[$itemId] ?? null;
-
-        // Base case: The quantity is explicitly saved for this item.
-        if (isset($menuQuantities[$itemId])) {
-            return (int)$menuQuantities[$itemId];
-        }
-
-        // Recursive step: Traverse up the hierarchy to find the parent's quantity.
-        if ($currentItem && $currentItem['parent_id']) {
-            return $this->findMainDishQuantity($currentItem['parent_id'], $menuSelection, $itemsById, $menuQuantities);
-        }
-
-        return null; // Return null if no quantity is found up the chain.
-    }
-
-    private function extractBillableItemIds(array $selection): array
-    {
-        $itemIds = [];
-        $mainDishIds = array_keys($selection);
-        foreach ($mainDishIds as $id) {
-            if (is_numeric($id)) $itemIds[] = (int)$id;
-        }
-        array_walk_recursive($selection, function ($value) use (&$itemIds) {
-            if (is_numeric($value)) $itemIds[] = (int)$value;
-        });
-        return array_unique($itemIds);
+        return $structuredMenu;
     }
 }

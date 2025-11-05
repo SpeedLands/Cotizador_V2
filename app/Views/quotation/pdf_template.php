@@ -44,32 +44,37 @@
                 <th>Fecha</th>
                 <td><?= date('d/m/Y', strtotime($cotizacion['fecha_evento'])) ?></td>
             </tr>
+            <tr>
+                <th>Modalidad de Servicio</th>
+                <td><?= esc($cotizacion['modalidad_servicio_label']) ?></td>
+            </tr>
         </table>
 
         <h2>Servicios Seleccionados</h2>
-        <table class="summary-table">
-            <thead>
-                <tr>
-                    <th>Servicio</th>
-                    <th>Cantidad</th>
-                    <th>Precio Unitario</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach($servicios_seleccionados as $categoria => $items): ?>
-                    <tr>
-                        <td colspan="3"><strong><?= esc($categoria) ?></strong></td>
-                    </tr>
-                    <?php foreach($items as $servicio): ?>
+        <?php if (!empty($menu_details)): ?>
+            <?php foreach ($menu_details as $item): ?>
+                <table class="summary-table">
+                    <thead>
                         <tr>
-                            <td><?= esc($servicio['full_path']) ?></td>
-                            <td><?= esc($servicio['cantidad']) ?></td>
-                            <td>$<?= number_format($servicio['precio_unitario'], 2) ?></td>
+                            <th style="background-color: #e3f2fd;"><?= esc($item['nombre_item']) ?></th>
+                            <th style="background-color: #e3f2fd; text-align: right;"><?= $item['quantity'] ? 'Cantidad: ' . esc($item['quantity']) : '' ?></th>
                         </tr>
-                    <?php endforeach; ?>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                    </thead>
+                    <?php if (!empty($item['sub_options'])): ?>
+                    <tbody>
+                        <?php foreach ($item['sub_options'] as $sub): ?>
+                        <tr>
+                            <td style="padding-left: 20px;">- <?= esc($sub['nombre_item']) ?></td>
+                            <td style="text-align: right;"><?= $sub['quantity'] && $sub['quantity'] != $item['quantity'] ? 'Cant: ' . esc($sub['quantity']) : '' ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <?php endif; ?>
+                </table>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <p>No se seleccionaron servicios en esta cotización.</p>
+        <?php endif; ?>
 
         <h2>Total Estimado</h2>
         <p>$<?= number_format($cotizacion['total_estimado'], 2) ?></p>

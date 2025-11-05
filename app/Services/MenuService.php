@@ -121,20 +121,30 @@ class MenuService
     }
 
     /**
-     * Elimina un ítem por ID, devolviendo true si se elimina.
+     * Elimina un ítem y todos sus descendientes en cascada.
      *
      * @param int $id
      * @return bool
      */
     public function deleteItem(int $id): bool
     {
-        // Evitar eliminación si tiene hijos
-        $childCount = $this->menuItemModel->where('parent_id', $id)->countAllResults();
-        if ($childCount > 0) {
+        $db = \Config\Database::connect();
+        $db->transStart();
+
+        try {
+            // 1. Eliminar todos los hijos y sus descendientes
+            $this->deleteAllChildren($id);
+
+            // 2. Eliminar el ítem principal
+            $this->menuItemModel->delete($id);
+
+            $db->transCommit();
+            return true;
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'Error en deleteItem (cascada): ' . $e->getMessage());
             return false;
         }
-
-        return (bool) $this->menuItemModel->delete($id);
     }
 
     /**
@@ -189,5 +199,43 @@ class MenuService
             ->countAllResults();
 
         return $count > 0;
+    }
+
+    /**
+     * Devuelve un ítem con toda su jerarquía de hijos (pasos y opciones).
+     *
+     * @param int $itemId
+     * @return array|null
+     */
+    public function getItemWithFullHierarchy(int $itemId): ?array
+    {
+        $mainItem = $this->getById($itemId);
+        if (!$mainItem) {
+            return null;
+        }
+
+        $mainItem['steps'] = $this->getActiveSubOptions($itemId);
+
+        foreach ($mainItem['steps'] as &$step) {
+            $step['options'] = $this->getActiveSubOptions($step['id_item']);
+        }
+
+        return $mainItem;
+    }
+
+    /**
+     * Elimina recursivamente todos los hijos de un ítem de menú.
+     *
+     * @param int $parentId
+     */
+    public function deleteAllChildren(int $parentId)
+    {
+        $children = $this->menuItemModel->where('parent_id', $parentId)->findAll();
+        foreach ($children as $child) {
+            // Llamada recursiva para eliminar a los nietos primero
+            $this->deleteAllChildren($child['id_item']);
+            // Eliminar el hijo
+            $this->menuItemModel->delete($child['id_item']);
+        }
     }
 }

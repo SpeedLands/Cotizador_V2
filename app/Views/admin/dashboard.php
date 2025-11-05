@@ -202,6 +202,14 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Gráfica: Distribución de Presupuestos -->
+            <div class="bg-white p-6 rounded-xl shadow-lg h-full lg:col-span-2">
+                <h5 class="text-lg font-semibold mb-4 border-b pb-2">Distribución de Presupuestos</h5>
+                <div class="relative h-80">
+                    <canvas id="graficaTotalDistribution"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -361,6 +369,65 @@
             ctxTipoEvento.getContext('2d').fillText("No hay datos de eventos para mostrar.", 125, 125);
         }
 
+        // --- GRÁFICA DE BARRAS: DISTRIBUCIÓN DE TOTALES ---
+        const ctxTotalDistribution = document.getElementById('graficaTotalDistribution').getContext('2d');
+
+        // Usar Fetch para obtener los datos del nuevo endpoint
+        fetch('<?= site_url(route_to('panel.dashboard.quoteTotalDistribution')) ?>')
+            .then(response => response.json())
+            .then(data => {
+                if (data.data.some(d => d > 0)) {
+                    new Chart(ctxTotalDistribution, {
+                        type: 'bar',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                label: 'Número de Cotizaciones',
+                                data: data.data,
+                                backgroundColor: '#1cc88a',
+                                borderColor: '#17a673',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1 // Asegura que el eje Y solo muestre enteros
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `Cotizaciones: ${context.raw}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    ctxTotalDistribution.font = "16px Arial";
+                    ctxTotalDistribution.fillStyle = "#6b7280";
+                    ctxTotalDistribution.textAlign = "center";
+                    ctxTotalDistribution.fillText("No hay datos de totales para mostrar.", ctxTotalDistribution.canvas.width / 2, ctxTotalDistribution.canvas.height / 2);
+                }
+            })
+            .catch(error => {
+                console.error('Error al cargar datos para la gráfica de distribución de totales:', error);
+                ctxTotalDistribution.font = "16px Arial";
+                ctxTotalDistribution.fillStyle = "#dc2626";
+                ctxTotalDistribution.textAlign = "center";
+                ctxTotalDistribution.fillText("Error al cargar los datos.", ctxTotalDistribution.canvas.width / 2, ctxTotalDistribution.canvas.height / 2);
+            });
     });
 </script>
 

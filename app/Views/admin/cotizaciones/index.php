@@ -13,6 +13,38 @@
     <!-- CSRF Meta Tags -->
     <meta name="csrf_token_name" content="<?= csrf_token() ?>">
     <meta name="csrf_hash" content="<?= csrf_hash() ?>">
+    <style>
+                /* Estilos para normalizar los inputs de DataTables */
+        .dt-search input,
+        .dt-length select {
+            border: 1px solid #d1d5db !important;      /* Borde gris claro */
+            background-color: #ffffff !important;      /* Fondo blanco */
+            color: #1f2937 !important;                 /* Texto oscuro */
+            background-image: none !important;         /* Opcional: Elimina la flecha de selector que a veces se pone oscura */
+        }
+        .dt-paging a {
+            background-color: #ffffff !important;
+            border: 1px solid #e5e7eb !important; /* Usamos un borde un poco más suave por defecto */
+            color: #374151 !important; /* Un gris oscuro para el texto */
+        }
+        
+        /* Para el enlace <a> de la paginación ACTIVA y en hover */
+        .dt-paging a.current, 
+        .dt-paging a:hover {
+            background-color: #4f46e5 !important; /* Color índigo */
+            border-color: #4f46e5 !important;
+            color: #ffffff !important;
+        }
+
+        /* Para los enlaces <a> de paginación DESHABILITADOS */
+        .dt-paging a.disabled,
+        .dt-paging a.disabled:hover {
+            background-color: #f3f4f6 !important; /* Gris claro de fondo */
+            border-color: #d1d5db !important;
+            color: #9ca3af !important; /* Texto gris claro */
+            cursor: default; /* Evita que el cursor cambie a "mano" */
+        }
+    </style>
 </head>
 <body class="bg-gray-100 pt-16">
 

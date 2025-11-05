@@ -81,11 +81,12 @@ class QuotationModel extends Model
         $ingresosPorMes = [];
 
         // 1. Preparamos un array con los últimos N meses, inicializados en 0
+        $formatter = new \IntlDateFormatter('es_ES', \IntlDateFormatter::NONE, \IntlDateFormatter::NONE, null, null, 'MMMM');
         for ($i = 0; $i < $numeroDeMeses; $i++) {
             $fecha = strtotime("-$i months");
-            // Para que los meses salgan en español, configuramos el locale
-            setlocale(LC_TIME, 'es_ES.UTF-8', 'Spanish');
-            $mesNombre = strftime('%B', $fecha); // Nombre completo del mes
+
+            // Usar IntlDateFormatter para obtener el nombre del mes en español
+            $mesNombre = $formatter->format($fecha);
             $mesAno = date('Y-m', $fecha);
             
             $datosGrafica['labels'][] = ucfirst($mesNombre);
@@ -188,6 +189,61 @@ class QuotationModel extends Model
             $stats['labels'][] = $label;
             $stats['data'][] = (int)$row['total'];
         }
+
+        return $stats;
+    }
+
+    /**
+     * Obtiene la distribución de los totales de cotizaciones por rangos de precios.
+     */
+    public function getQuoteTotalDistribution(): array
+    {
+        $rawSelect = "
+            CASE
+                WHEN total_estimado + 0 BETWEEN 0 AND 4999 THEN '0 - 4,999'
+                WHEN total_estimado + 0 BETWEEN 5000 AND 9999 THEN '5,000 - 9,999'
+                WHEN total_estimado + 0 BETWEEN 10000 AND 14999 THEN '10,000 - 14,999'
+                WHEN total_estimado + 0 BETWEEN 15000 AND 19999 THEN '15,000 - 19,999'
+                ELSE '20,000+'
+            END as price_range,
+            CASE
+                WHEN total_estimado + 0 BETWEEN 0 AND 4999 THEN 1
+                WHEN total_estimado + 0 BETWEEN 5000 AND 9999 THEN 2
+                WHEN total_estimado + 0 BETWEEN 10000 AND 14999 THEN 3
+                WHEN total_estimado + 0 BETWEEN 15000 AND 19999 THEN 4
+                ELSE 5
+            END as range_order,
+            COUNT(id_cotizacion) as total
+        ";
+
+        $query = $this->select($rawSelect, false)
+        ->where('status !=', 'Cancelado')
+        ->groupBy('price_range, range_order')
+        ->orderBy('range_order', 'ASC')
+        ->findAll();
+
+        $stats = [
+            'labels' => [],
+            'data'   => [],
+        ];
+
+        // Mapeo para el orden correcto
+        $rangeOrder = [
+            '0 - 4,999' => 0,
+            '5,000 - 9,999' => 0,
+            '10,000 - 14,999' => 0,
+            '15,000 - 19,999' => 0,
+            '20,000+' => 0,
+        ];
+
+        foreach ($query as $row) {
+            if (isset($rangeOrder[$row['price_range']])) {
+                $rangeOrder[$row['price_range']] = (int)$row['total'];
+            }
+        }
+
+        $stats['labels'] = array_keys($rangeOrder);
+        $stats['data'] = array_values($rangeOrder);
 
         return $stats;
     }

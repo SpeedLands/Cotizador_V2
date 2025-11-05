@@ -17,7 +17,14 @@ class QuotationDataSeeder extends Seeder
         
         // Datos de prueba para el menú (simulación de detalle_menu JSON)
         $menuDetail = json_encode([
-            '1' => '1', '3' => '1', '7' => '1', '15' => '1', '24' => '100', '45' => '1',
+            "selection" => [
+                "14" => ["15" => "17", "22" => "24"],
+                "129" => "129"
+            ],
+            "quantities" => [
+                "14" => "30",
+                "129" => "30"
+            ]
         ]);
 
         $cotizaciones = [];
@@ -33,6 +40,8 @@ class QuotationDataSeeder extends Seeder
         $canalOptions = ['recomendacion', 'redes', 'restaurante', 'otro']; 
         $eventoOptions = ['social', 'empresarial', 'otro'];
         $consumidoresOptions = ['hombres', 'mujeres', 'ninos', 'mixto'];
+
+        $modalidadOptions = ['buffet_asistido', 'buffet_self_service', 'servicio_a_la_mesa'];
 
         // =================================================================
         // BLOQUE 1: FORZAR DATOS PARA LA GRÁFICA DE 6 MESES (CONFIRMADOS)
@@ -71,6 +80,7 @@ class QuotationDataSeeder extends Seeder
                 'notas_adicionales' => 'Evento de fin de año de la empresa.',
                 'created_at'        => $createdDate,
                 'updated_at'        => $createdDate,
+                'modalidad_servicio'=> $modalidadOptions[array_rand($modalidadOptions)],
             ];
         }
         
@@ -107,6 +117,7 @@ class QuotationDataSeeder extends Seeder
                 'tipo_consumidores' => $consumidoresOptions[array_rand($consumidoresOptions)],
                 'restricciones_alimenticias' => ($i % 5 == 0) ? 'Vegetarianos' : null,
                 'rango_presupuesto' => '$10,000 - $20,000',
+                'modalidad_servicio'=> $modalidadOptions[array_rand($modalidadOptions)],
                 
                 'detalle_menu'      => $menuDetail, 
                 'notas_adicionales' => 'Cotización estándar para evento social.',

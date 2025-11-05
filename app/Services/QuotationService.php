@@ -177,4 +177,42 @@ class QuotationService
 
         return array_unique($itemIds);
     }
+
+    public function updateQuotation(int $id, array $data): bool
+    {
+        // Reutilizar la lógica de cálculo de `createQuotation`
+        $menuSelection = $data['menu_selection'] ?? [];
+        $menuQuantities = $data['menu_quantities'] ?? [];
+        $numInvitados = (int)($data['num_invitados'] ?? 0);
+        $totalEstimado = $this->calculateTotal($menuSelection, $menuQuantities, $numInvitados);
+
+        $updateData = [
+            'cliente_nombre'    => $data['cliente_nombre'],
+            'cliente_whatsapp'  => $data['cliente_whatsapp'],
+            'num_invitados'     => $data['num_invitados'],
+            'fecha_evento'      => $data['fecha_evento'],
+            'tipo_evento'       => $data['tipo_evento'],
+            'nombre_empresa'    => $data['nombre_empresa'] ?? null,
+            'hora_inicio'       => $data['hora_inicio'],
+            'hora_consumo'      => $data['hora_consumo'],
+            'hora_finalizacion' => $data['hora_finalizacion'],
+            'direccion_evento'  => $data['direccion_evento'],
+            'modalidad_servicio'=> $data['modalidad_servicio'],
+            'mesa_mantel'       => $data['mesa_mantel'],
+            'mesa_mantel_especificar' => $data['mesa_mantel_especificar'] ?? null,
+            'dificultad_montaje'=> $data['dificultad_montaje'],
+            'como_nos_conocio'  => $data['como_nos_conocio'],
+            'tipo_consumidores' => $data['tipo_consumidores'],
+            'restricciones_alimenticias' => $data['restricciones_alimenticias'] ?? null,
+            'rango_presupuesto' => $data['rango_presupuesto'] ?? null,
+            'detalle_menu'      => [
+                'selection' => $menuSelection,
+                'quantities' => $menuQuantities,
+            ],
+            'notas_adicionales' => $data['notas_adicionales'] ?? null,
+            'total_estimado'    => $totalEstimado,
+        ];
+
+        return $this->quotationModel->update($id, $updateData);
+    }
 }

@@ -559,7 +559,7 @@
 
                 if (inputType === 'quantity') {
                     html += `
-                        <div class="simple-quantity-item p-3 border-2 border-gray-200 rounded-lg" data-item-id="${opt.id_item}" data-main-dish="${mainDishParentId}">
+                        <div class="simple-quantity-item p-3 border-2 border-gray-200 rounded-lg" data-item-id="${opt.id_item}" data-main-dish="${mainDishParentId}" data-step-id="${step.stepId}">
                             <div class="flex justify-between items-center">
                                 <div>
                                     <h3 class="font-semibold text-gray-800">${opt.nombre_item}</h3>
@@ -608,6 +608,7 @@
                 let currentValue = parseInt($input.val(), 10);
                 const itemId = $container.data('item-id').toString();
                 const mainDishId = $container.data('main-dish').toString();
+                const stepId = $container.data('step-id').toString();
 
                 if ($(this).hasClass('quantity-increase-btn')) {
                     if (currentValue === 0) {
@@ -620,22 +621,32 @@
                 }
 
                 $input.val(currentValue);
-                saveQuantitySubOptionState(itemId, mainDishId, currentValue);
+                saveQuantitySubOptionState(itemId, mainDishId, stepId, currentValue);
             });
         }
         
-        function saveQuantitySubOptionState(itemId, mainDishId, quantity) {
-            selectedItemsContainer.find(`.main-dish-item[data-item-id="${itemId}"]`).remove();
+        function saveQuantitySubOptionState(itemId, mainDishId, stepId, quantity) {
+            // Remove both selection and quantity inputs for this item to avoid duplicates
+            selectedItemsContainer.find(`input[data-item-id="${itemId}"]`).remove();
 
             if (quantity > 0) {
-                // Also add the name attribute here to submit the quantity.
-                const subOptionInput = `<input type="hidden"
-                                              class="main-dish-item"
+                const name = `menu_selection[${mainDishId}][${stepId}]`;
+
+                // Input for SELECTION
+                const selectionInput = `<input type="hidden"
+                                               name="${name}"
+                                               value="${itemId}"
+                                               data-main-dish="${mainDishId}"
+                                               data-item-id="${itemId}">`;
+
+                // Input for QUANTITY
+                const quantityInput = `<input type="hidden"
                                               name="menu_quantities[${itemId}]"
                                               value="${quantity}"
                                               data-main-dish="${mainDishId}"
                                               data-item-id="${itemId}">`;
-                selectedItemsContainer.append(subOptionInput);
+
+                selectedItemsContainer.append(selectionInput).append(quantityInput);
             }
 
             updateInstantQuote();
@@ -669,10 +680,10 @@
             modalContent.find('.simple-quantity-item').each(function() {
                 const $container = $(this);
                 const itemId = $container.data('item-id').toString();
-                const $savedInput = selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`);
+                const $savedQuantityInput = selectedItemsContainer.find(`input[name="menu_quantities[${itemId}]"]`);
 
-                if ($savedInput.length) {
-                    const savedQuantity = $savedInput.data('quantity');
+                if ($savedQuantityInput.length) {
+                    const savedQuantity = $savedQuantityInput.val();
                     $container.find('.quantity-input').val(savedQuantity);
                 }
             });
@@ -743,20 +754,22 @@
             const csrfTokenValue = $('input[name="csrf_test_name"]').val();
             const numInvitados = $('#cantidad_invitados').val();
             
-            // Recopilar todos los ítems seleccionados (adaptado para estructura simple y anidada)
+            const menuQuantities = {};
             const selectedIds = new Set();
 
-            // 1. Inputs de selecciones simples (no personalizables)
-            $('#menu-options-root .menu-item-selectable[data-has-children="false"] input:checked').each(function() {
-                 const id = $(this).val();
-                 selectedIds.add(id);
+            // 1. Recopilar cantidades y IDs de todos los inputs en el contenedor.
+            // Esto se convierte en la única fuente de verdad.
+            selectedItemsContainer.find('input[name^="menu_quantities"]').each(function() {
+                const itemId = $(this).attr('name').match(/\[(\d+)\]/)[1];
+                const quantity = $(this).val();
+                menuQuantities[itemId] = quantity;
+                selectedIds.add(itemId); // Un item con cantidad siempre está seleccionado.
             });
 
-            // 2. Inputs de personalización anidada desde la modal
-            selectedItemsContainer.find('input[type="hidden"]').each(function() {
+            // 2. Recopilar selecciones (checkbox/radio) y sus platillos principales.
+            selectedItemsContainer.find('input[name^="menu_selection"]').each(function() {
                 // Agregar el ID de la opción/sub-opción seleccionada
-                const optionId = $(this).val();
-                selectedIds.add(optionId);
+                selectedIds.add($(this).val());
 
                 // Agregar el ID del platillo principal al que pertenece esta opción
                 const mainDishId = $(this).data('main-dish');
@@ -765,29 +778,21 @@
                 }
             });
 
-            // Convertir el Set al formato de objeto que espera el backend
-            const menuSelections = {};
+            // 3. Convertir el Set a un objeto plano para el backend.
+            const flatMenuSelection = {};
             selectedIds.forEach(id => {
-                menuSelections[id] = id;
-            });
-
-            const menuQuantities = {};
-            // Correctly read quantities from the value attribute of quantity inputs.
-            selectedItemsContainer.find('input[name^="menu_quantities"]').each(function() {
-                const itemId = $(this).attr('name').match(/\[(\d+)\]/)[1];
-                const quantity = $(this).val();
-                menuQuantities[itemId] = quantity;
+                flatMenuSelection[id] = id;
             });
 
             const postData = {
                 num_invitados: numInvitados,
-                menu_selection: menuSelections,
-                menu_quantities: menuQuantities, // Enviar las cantidades al backend
+                menu_selection: flatMenuSelection,
+                menu_quantities: menuQuantities,
                 [csrfTokenName]: csrfTokenValue
             };
             
             // Si no hay ítems seleccionados, mostrar 0.00
-            if (Object.keys(menuSelections).length === 0) {
+            if (selectedIds.size === 0) {
                 $('#instant-quote-total').text('$0.00');
                 $('#quote-summary').html('<p class="text-gray-500">Aún no has seleccionado ningún servicio.</p>');
                 return;
@@ -1091,15 +1096,23 @@
             const itemId = $container.data('item-id').toString();
             const quantity = parseInt($(this).val(), 10);
 
-            // Remover el input oculto si ya existe para evitar duplicados
-            selectedItemsContainer.find(`.main-dish-item[value="${itemId}"]`).remove();
+            // Remover inputs existentes para este item para evitar duplicados.
+            selectedItemsContainer.find(`input[data-item-id="${itemId}"]`).remove();
 
             if (quantity > 0) {
-                const mainDishInput = `<input type="hidden"
-                                              class="main-dish-item"
-                                              value="${itemId}"
-                                              data-quantity="${quantity}">`;
-                selectedItemsContainer.append(mainDishInput);
+                // Input para la SELECCIÓN (para que el backend sepa que se eligió)
+                const selectionInput = `<input type="hidden"
+                                               name="menu_selection[${itemId}]"
+                                               value="${itemId}"
+                                               data-item-id="${itemId}">`;
+
+                // Input para la CANTIDAD
+                const quantityInput = `<input type="hidden"
+                                              name="menu_quantities[${itemId}]"
+                                              value="${quantity}"
+                                              data-item-id="${itemId}">`;
+
+                selectedItemsContainer.append(selectionInput).append(quantityInput);
             }
 
             updateInstantQuote();

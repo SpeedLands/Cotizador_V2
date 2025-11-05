@@ -64,6 +64,10 @@ $routes->get('admin/logout', 'AdminController::logout', ['as' => 'admin.logout']
 // Grupo de rutas del panel de administración (protegidas)
 $routes->group('panel', ['filter' => 'adminAuth'], function($routes) {
     $routes->get('servicios', 'AdminController::listServices', ['as' => 'panel.servicios.index']); // Vista de la tabla de servicios
+    $routes->get('servicios/crear-interactivo', 'AdminController::createServiceInteractive', ['as' => 'panel.servicios.crear-interactivo']);
+    $routes->post('servicios/guardar-interactivo', 'AdminController::storeServiceInteractive', ['as' => 'panel.servicios.guardar-interactivo']);
+    $routes->get('servicios/editar-interactivo/(:num)', 'AdminController::editServiceInteractive/$1', ['as' => 'panel.servicios.editar-interactivo']);
+    $routes->post('servicios/actualizar-interactivo', 'AdminController::updateServiceInteractive', ['as' => 'panel.servicios.actualizar-interactivo']);
     $routes->get('servicios/crear', 'AdminController::createService', ['as' => 'panel.servicios.crear']); // Vista del formulario de creación
     $routes->get('servicios/editar/(:num)', 'AdminController::editService/$1', ['as' => 'panel.servicios.editar']); // Vista del formulario de edición
     $routes->post('servicios/actualizar', 'AdminController::updateService', ['as' => 'panel.servicios.actualizar']); // Endpoint para actualizar
@@ -75,9 +79,10 @@ $routes->group('panel', ['filter' => 'adminAuth'], function($routes) {
     $routes->get('cotizaciones', 'AdminController::listQuotations', ['as' => 'panel.cotizaciones.index']); // Vista de la tabla
     $routes->post('cotizaciones/datatable', 'QuotationDataTableController::getQuotations', ['as' => 'panel.cotizaciones.datatable']); // Endpoint AJAX
     $routes->get('dashboard', 'AdminController::dashboard', ['as' => 'panel.dashboard']);
+    $routes->get('dashboard/quote-total-distribution', 'AdminController::getQuoteTotalDistributionData', ['as' => 'panel.dashboard.quoteTotalDistribution']);
     $routes->get('cotizaciones/ver/(:num)', 'AdminController::viewCotizacion/$1', ['as' => 'panel.cotizaciones.view']);
     $routes->get('cotizaciones/editar/(:num)', 'AdminController::editCotizacion/$1', ['as' => 'panel.cotizaciones.edit']);
-    $routes->post('cotizaciones/actualizar', 'AdminController::updateCotizacion', ['as' => 'panel.cotizaciones.update']);
+    $routes->post('cotizaciones/actualizar/(:num)', 'AdminController::updateCotizacion/$1', ['as' => 'panel.cotizaciones.update']);
     $routes->post('cotizaciones/actualizar-estado', 'AdminController::updateStatus', ['as' => 'panel.cotizaciones.updateStatus']);
     $routes->post('cotizaciones/anticipo', 'AdminController::addAnticipo', ['as' => 'panel.cotizaciones.anticipo']);
 });

@@ -26,15 +26,34 @@ class MenuItemDataTableModel extends Model
         'mi.tipo_ui'
     ];
 
-    // Orden por defecto para mostrar la jerarquía
-    protected $order = ['mi.parent_id' => 'ASC', 'mi.orden' => 'ASC'];
+    // Orden por defecto para la agrupación
+    protected $order = ['parent.nombre_item' => 'ASC', 'mi.nombre_item' => 'ASC'];
 
     private function _get_datatables_query($searchValue)
     {
         $builder = $this->db->table('menu_items as mi');
-        // Hacemos un LEFT JOIN para obtener el nombre del padre
+
+        // 1. Encontrar el ID de la categoría raíz
+        $root = $this->db->table('menu_items')->where('parent_id', null)->get()->getRow();
+        $rootId = $root ? $root->id_item : null;
+
+        // 2. Obtener los IDs de las sub-categorías
+        $subCategoryIds = [];
+        if ($rootId) {
+            $subCategories = $this->db->table('menu_items')->select('id_item')->where('parent_id', $rootId)->get()->getResultArray();
+            $subCategoryIds = array_column($subCategories, 'id_item');
+        }
+
         $builder->select('mi.id_item, mi.nombre_item, mi.tipo_ui, mi.precio_unitario, mi.activo, parent.nombre_item as parent_name');
         $builder->join('menu_items as parent', 'parent.id_item = mi.parent_id', 'left');
+
+        // 3. Aplicar el filtro para mostrar SOLO los platillos (hijos de las sub-categorías)
+        if (!empty($subCategoryIds)) {
+            $builder->whereIn('mi.parent_id', $subCategoryIds);
+        } else {
+            // Si no hay sub-categorías, no mostrar nada
+            $builder->where('1=0');
+        }
 
         // Lógica de búsqueda global
         if ($searchValue) {
